@@ -18,6 +18,26 @@ PROJECT_ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 export PROJECT_ROOT
 cd "$PROJECT_ROOT"
 
+# ── El entorno del ANFITRIÓN no entra: los tests son herméticos ──────
+# Un test cuyo veredicto depende de una variable que él no puso mide otra cosa
+# — y lo hace en silencio, dando un rojo que acusa al harness de un fallo del
+# entorno. Pasó dos veces con la misma forma: un workflow de CI que pone
+# GATES_SKIP_TESTS=1 en el step (legítimo: en Ubuntu no hay Xcode para el build
+# de una app iOS) tumbaba `golden_09`, y un `export REVIEWER_OVERRIDE=1` en la
+# shell de un dev tumba 12 de los 26 tests de `test_scope_kind.sh` — los que
+# comprueban que el gate SIGUE exigiendo review.
+#
+# Se sanea UNA vez, aquí, en vez de exigir que cada archivo de test recuerde
+# blindarse: la lista es corta, cerrada y está en el sitio por el que pasan
+# todos. Los tests que necesitan una de estas variables la ponen ELLOS en la
+# invocación (que es lo correcto y sigue funcionando: un `VAR=x cmd` gana).
+unset GATES_SKIP_TESTS GATES_REQUIRE_SEMGREP GATES_REQUIRE_SOURCE_SETS \
+      GATES_REQUIRE_MUTATION GATES_SECRET_MODE GATES_BASE_REF \
+      AI_REVIEW_REQUIRED AI_REVIEW_OUT \
+      REVIEWER_OVERRIDE REVIEWER_OVERRIDE_REASON \
+      VERIFY_OVERRIDE VERIFY_OVERRIDE_REASON VERIFY_CMD VERIFY_CONF \
+      MUTATION_SCORE_OVERRIDE 2>/dev/null || true
+
 FILTER="${1:-}"
 PASS=0; FAIL=0; FAILED_NAMES=()
 

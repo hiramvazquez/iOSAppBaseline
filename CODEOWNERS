@@ -9,40 +9,34 @@
 # Lo lee GitHub/GitLab automáticamente. Si no usas ninguno de los dos, sigue
 # valiendo como documentación de propiedad.
 #
-# <!-- FILL: sustituye los @placeholder por tus usuarios/equipos reales. -->
+# (repartir por área cuando el equipo crezca)
 
 # Por defecto: el owner del proyecto.
-*                               @owner
+*                               @hiramvazquez
 
 # ── Meta-doc y gates: cambiarlos cambia las reglas de TODO el repo ───
 # AGENTS.md §8 los declara fuera de scope para los agentes. Requieren una
 # persona porque un gate mal puesto bloquea trabajo legítimo, y un gate mal
 # quitado deja pasar lo que debía parar.
-/AGENTS.md                      @owner
-/CLAUDE.md                      @owner
-/.agents/skills/                @owner
-/scripts/agent-hooks/           @owner
-/tools/                         @owner
-/ci/                            @owner
-/lefthook.yml                   @owner
-/.claude/settings.json          @owner
+/AGENTS.md                      @hiramvazquez
+/CLAUDE.md                      @hiramvazquez
+/.agents/skills/                @hiramvazquez
+/scripts/agent-hooks/           @hiramvazquez
+/tools/                         @hiramvazquez
+/ci/                            @hiramvazquez
+/lefthook.yml                   @hiramvazquez
+/.claude/settings.json          @hiramvazquez
 
 # ── Trinquetes: su dirección es el invariante, no su valor ──────────
 # Un cambio aquí solo es legítimo si viene del `--update` de su script.
-/tools/drift-ratchet.json       @owner
-/tools/mutation-ratchet.json    @owner
+/tools/drift-ratchet.json       @hiramvazquez
+/tools/mutation-ratchet.json    @hiramvazquez
 
 # ── Seguridad ────────────────────────────────────────────────────────
-/.gitleaks.toml                 @owner
-/.claude/security-patterns.yaml @owner
-/.claude/claude-security-guidance.md @owner
-/enterprise/                    @owner
+/.gitleaks.toml                 @hiramvazquez
+/.claude/security-patterns.yaml @hiramvazquez
+/.claude/claude-security-guidance.md @hiramvazquez
+/enterprise/                    @hiramvazquez
 
 # ── Por área de producto ─────────────────────────────────────────────
-# <!-- FILL: reparte tu código real. Ejemplos:
-# /ios/                         @equipo-ios
-# /android/                     @equipo-android
-# /web/                         @equipo-web
-# /**/Domain/                   @equipo-dominio
-# /migrations/                  @equipo-datos @owner
-# -->
+# (repartir por área cuando el equipo crezca)

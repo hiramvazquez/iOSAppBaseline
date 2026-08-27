@@ -180,7 +180,17 @@ _case_g9_anillo3_invoca_todos_los_gates() {
   done
   stub bin/gitleaks '#!/usr/bin/env bash\nexit 0\n'
 
-  GATE_LOG="$log" PATH="$PWD/bin:/usr/bin:/bin" bash ci/run-gates.sh --backend fake >/dev/null 2>&1
+  # `env -u` blinda el sandbox contra las variables del ANFITRIÓN. Sin esto, el
+  # test hereda lo que traiga el entorno y mide otra cosa: en CI, el workflow
+  # pone GATES_SKIP_TESTS=1 en el step (legítimo: en Ubuntu no hay Xcode para el
+  # build), esa variable se filtra hasta aquí, run-gates se salta verify-run —
+  # y este test, que existe justamente para comprobar que preset full NO reduce
+  # ningún gate, falla acusando al harness de un fallo del entorno. Es la
+  # lección de la casa: si el resultado depende de algo que el test no creó, ese
+  # algo es una entrada no declarada.
+  env -u GATES_SKIP_TESTS -u GATES_REQUIRE_SEMGREP -u GATES_REQUIRE_SOURCE_SETS \
+      -u GATES_REQUIRE_MUTATION -u AI_REVIEW_REQUIRED -u GATES_BASE_REF -u GATES_SECRET_MODE \
+      GATE_LOG="$log" PATH="$PWD/bin:/usr/bin:/bin" bash ci/run-gates.sh --backend fake >/dev/null 2>&1
   local rc=$? faltan=""
   [ "$rc" = 0 ] || { echo "    run-gates con todos los gates en verde salió $rc"; return 1; }
   for nombre in $(_g9_gates exigidos); do
@@ -191,14 +201,34 @@ _case_g9_anillo3_invoca_todos_los_gates() {
   # Un gate en rojo tumba el anillo entero.
   : > "$log"
   stub tools/check-layers.sh '#!/usr/bin/env bash\necho tools/check-layers.sh >> "$GATE_LOG"\nexit 1\n'
-  GATE_LOG="$log" PATH="$PWD/bin:/usr/bin:/bin" bash ci/run-gates.sh --backend fake >/dev/null 2>&1
+  # `env -u` blinda el sandbox contra las variables del ANFITRIÓN. Sin esto, el
+  # test hereda lo que traiga el entorno y mide otra cosa: en CI, el workflow
+  # pone GATES_SKIP_TESTS=1 en el step (legítimo: en Ubuntu no hay Xcode para el
+  # build), esa variable se filtra hasta aquí, run-gates se salta verify-run —
+  # y este test, que existe justamente para comprobar que preset full NO reduce
+  # ningún gate, falla acusando al harness de un fallo del entorno. Es la
+  # lección de la casa: si el resultado depende de algo que el test no creó, ese
+  # algo es una entrada no declarada.
+  env -u GATES_SKIP_TESTS -u GATES_REQUIRE_SEMGREP -u GATES_REQUIRE_SOURCE_SETS \
+      -u GATES_REQUIRE_MUTATION -u AI_REVIEW_REQUIRED -u GATES_BASE_REF -u GATES_SECRET_MODE \
+      GATE_LOG="$log" PATH="$PWD/bin:/usr/bin:/bin" bash ci/run-gates.sh --backend fake >/dev/null 2>&1
   [ "$?" = 1 ] || { echo "    un gate en rojo no tumbó a run-gates"; return 1; }
 
   # Y un gate AUSENTE tampoco es verde (§14.3: fail-closed en CI).
   : > "$log"
   stub tools/check-layers.sh '#!/usr/bin/env bash\necho tools/check-layers.sh >> "$GATE_LOG"\nexit 0\n'
   rm -f tools/semgrep-scan.sh
-  GATE_LOG="$log" PATH="$PWD/bin:/usr/bin:/bin" bash ci/run-gates.sh --backend fake >/dev/null 2>&1
+  # `env -u` blinda el sandbox contra las variables del ANFITRIÓN. Sin esto, el
+  # test hereda lo que traiga el entorno y mide otra cosa: en CI, el workflow
+  # pone GATES_SKIP_TESTS=1 en el step (legítimo: en Ubuntu no hay Xcode para el
+  # build), esa variable se filtra hasta aquí, run-gates se salta verify-run —
+  # y este test, que existe justamente para comprobar que preset full NO reduce
+  # ningún gate, falla acusando al harness de un fallo del entorno. Es la
+  # lección de la casa: si el resultado depende de algo que el test no creó, ese
+  # algo es una entrada no declarada.
+  env -u GATES_SKIP_TESTS -u GATES_REQUIRE_SEMGREP -u GATES_REQUIRE_SOURCE_SETS \
+      -u GATES_REQUIRE_MUTATION -u AI_REVIEW_REQUIRED -u GATES_BASE_REF -u GATES_SECRET_MODE \
+      GATE_LOG="$log" PATH="$PWD/bin:/usr/bin:/bin" bash ci/run-gates.sh --backend fake >/dev/null 2>&1
   [ "$?" = 1 ] || { echo "    un gate ausente pasó por gate aprobado"; return 1; }
 }
 test_golden_09_preset_full_no_reduce_ningun_gate() {

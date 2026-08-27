@@ -1,4 +1,4 @@
-# <PROJECT> iOS — overrides de plataforma
+# iOSAppBaseline iOS — overrides de plataforma
 
 > `AGENTS.md` anidado. Se **combina** con el raíz; el más cercano al archivo editado gana.
 > Solo lo específico de iOS; lo común queda en el raíz. Lo lee Cursor/Codex nativo; Claude vía la skill `architecture`.

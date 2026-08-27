@@ -158,3 +158,53 @@ test_stat_lee_gnu_primero_y_bsd_despues() {
   echo "    Verde en macOS, rojo en CI — asi se publico main en rojo."
   return 1
 }
+
+# El runner sanea el entorno del anfitrión antes de correr nada: un test cuyo
+# veredicto dependa de una variable que él no puso mide otra cosa, y lo hace en
+# silencio. Pasó dos veces (GATES_SKIP_TESTS tumbando golden_09 desde el step de
+# CI; REVIEWER_OVERRIDE tumbando 12 de 26 tests de scope_kind desde la shell de
+# un dev). Sin este test, borrar el `unset` no pondría nada en rojo.
+test_el_runner_sanea_el_entorno_del_anfitrion() {
+  local runner="$PROJECT_ROOT/tools/tests/run-tests.sh" falta="" v
+  # LAS QUINCE, no una muestra: una versión anterior de este test comprobaba
+  # siete y quedaba VERDE si alguien quitaba VERIFY_CMD del unset — con esa
+  # sola quitada, `VERIFY_CMD=true bash tools/tests/run-tests.sh verify_marker`
+  # da cinco rojos. Un test que cubre la mitad de su contrato invita a recortar
+  # la otra mitad con luz verde falsa. Lo cazó el reviewer con ese mutante.
+  # El ancla es `unset` + IDENTIFICADOR EN MAYÚSCULAS, no el literal `unset
+  # GATES_`: con el literal, reordenar el bloque para que empiece por otra
+  # variable dejaba de abrir el rango y el check reportaba las quince como
+  # ausentes — un falso positivo que el propio hardening introdujo. (Y la
+  # justificación de aquel literal era falsa: los `unset -f` del runner van
+  # indentados, así que un ancla en columna 0 nunca los captura.)
+  for v in GATES_SKIP_TESTS GATES_REQUIRE_SEMGREP GATES_REQUIRE_SOURCE_SETS \
+           GATES_REQUIRE_MUTATION GATES_SECRET_MODE GATES_BASE_REF \
+           AI_REVIEW_REQUIRED AI_REVIEW_OUT \
+           REVIEWER_OVERRIDE REVIEWER_OVERRIDE_REASON \
+           VERIFY_OVERRIDE VERIFY_OVERRIDE_REASON VERIFY_CMD VERIFY_CONF \
+           MUTATION_SCORE_OVERRIDE; do
+    awk '/^unset [A-Z_]/,/[^\\]$/' "$runner" | grep -qw "$v" || falta="$falta $v"
+  done
+  [ -z "$falta" ] \
+    || { echo "    el runner no sanea variables que alteran gates:$falta"; return 1; }
+
+  # Y que el saneo FUNCIONE, no solo que esté escrito. La comprobación es este
+  # test MISMO: corre dentro del runner, así que si el saneo funciona ninguna de
+  # esas variables puede estar definida aquí — da igual lo que trajera la shell
+  # que lanzó la suite. Con `GATES_SKIP_TESTS=1 bash tools/tests/run-tests.sh`
+  # esto es una prueba real; sin nada en el entorno, pasa trivialmente y el
+  # check estático de arriba es el que sostiene el contrato.
+  # (Invocar el runner desde aquí sería recursión infinita: el filtro casaría
+  # con este mismo test. Se intentó y colgó la suite.)
+  local sucias="" w
+  for w in GATES_SKIP_TESTS GATES_REQUIRE_SEMGREP GATES_REQUIRE_SOURCE_SETS \
+           GATES_REQUIRE_MUTATION GATES_SECRET_MODE GATES_BASE_REF \
+           AI_REVIEW_REQUIRED AI_REVIEW_OUT \
+           REVIEWER_OVERRIDE REVIEWER_OVERRIDE_REASON \
+           VERIFY_OVERRIDE VERIFY_OVERRIDE_REASON VERIFY_CMD VERIFY_CONF \
+           MUTATION_SCORE_OVERRIDE; do
+    [ -z "${!w:-}" ] || sucias="$sucias $w"
+  done
+  [ -z "$sucias" ] \
+    || { echo "    el saneo no surtió efecto: llegaron del anfitrión:$sucias"; return 1; }
+}

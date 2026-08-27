@@ -168,3 +168,85 @@ test_la_cache_de_gates_no_se_lee_como_secreto() {
   _ss_sandbox _case_la_cache_de_gates_no_dispara_gitleaks 2>/dev/null \
     || _case_la_cache_de_gates_no_dispara_gitleaks
 }
+
+# El PRIMER push de un repo no tiene upstream: `@{push}` no resuelve y, sin
+# último recurso, `--range` moría con exit 3 — o sea que todo adoptante
+# estrenaba su repo con el gate de secretos bloqueando y sin más salida que un
+# override. `HEAD` cubre ese caso siendo MÁS estricto (toda la historia propia),
+# no menos, y sin arrastrar la historia ajena de un remote `template`.
+test_el_primer_push_sin_upstream_escanea_su_propia_historia() {
+  _case_primer_push() {
+    printf 'contenido\n' > a.txt
+    git add -A >/dev/null 2>&1
+    git commit -qm "primer commit del repo" >/dev/null 2>&1
+    # Sin upstream configurado: el estado exacto de un repo recién creado.
+    git rev-parse '@{push}' >/dev/null 2>&1 \
+      && { echo "    precondición rota: el sandbox tiene upstream"; return 1; }
+
+    local out rc
+    out="$(bash "$PROJECT_ROOT/tools/secret-scan.sh" --range 2>&1)"; rc=$?
+    [ "$rc" != "3" ] \
+      || { echo "    el primer push sigue saliendo 3: el adoptante no puede pushear"; return 1; }
+    case "$out" in
+      *"commits scanned"*) : ;;
+      *) echo "    no escaneó nada; salida: $out"; return 1 ;;
+    esac
+  }
+  with_temp_repo _case_primer_push
+}
+
+# La garantía más sensible del último recurso, y la que causó el incidente real:
+# `HEAD` NO puede arrastrar la historia de un remote no relacionado. Un adoptante
+# por copia tiene un remote `template` cuya historia no es ancestro de la suya;
+# si el scan la incluyera, su primer push heredaría los hallazgos históricos del
+# template (pasó: un ejemplo didáctico de secreto en su ADOPTION.md).
+#
+# ⚠️ Este test EJECUTA `secret-scan.sh --range` con gitleaks real. Una versión
+# anterior solo comprobaba con `git rev-list` que el commit ajeno no fuera
+# ancestro de HEAD — que es cierto por construcción de git, no por nuestro
+# código: probaba git, no el harness. Y su "mutante" cambiaba el propio test,
+# no el script. Lo cazó el reviewer. Un test que no ejerce el código que dice
+# proteger es decorativo por definición (AGENTS.md §5).
+test_el_ultimo_recurso_no_arrastra_historia_de_un_remote_ajeno() {
+  command -v gitleaks >/dev/null 2>&1 || return 0   # sin gitleaks, no aplica
+  _case_remote_ajeno() {
+    local ajeno; ajeno="$(mktemp -d)"
+    (
+      cd "$ajeno" || exit 1
+      git init -q .
+      git config user.email t@t.t; git config user.name t
+      # El secreto tiene que ser uno que gitleaks DETECTE de verdad: probé el
+      # AKIA...EXAMPLE canónico, un id AKIA realista y una cabecera de clave
+      # RSA — gitleaks no marca ninguno, así que el test habría pasado sin
+      # probar nada. Un token de GitHub sí lo marca.
+      # El literal va PARTIDO a propósito: escrito entero, el propio
+      # secret-scan de este repo lo cazaría en este archivo y dejaría el gate
+      # en rojo perpetuo. (Lección de la casa: un literal partido lleva escrito
+      # por qué, o el siguiente lo junta.)
+      printf 'token = "%s%s"\n' 'ghp_' '016c8bF6c0d1e2A3b4C5d6E7f8091a2B3c4D5' > filtrado.txt
+      git add -A >/dev/null 2>&1
+      git commit -qm "historia AJENA con un secreto" >/dev/null 2>&1
+    )
+    printf 'contenido limpio\n' > propio.txt
+    git add -A >/dev/null 2>&1
+    git commit -qm "historia propia" >/dev/null 2>&1
+    git remote add template "$ajeno" >/dev/null 2>&1
+    git fetch -q template >/dev/null 2>&1
+
+    # Precondición: el secreto ajeno ESTÁ en el repo (si no, no se prueba nada).
+    local hay_ajeno; hay_ajeno="$(git rev-list --all --count 2>/dev/null)"
+    local propios;   propios="$(git rev-list --count HEAD 2>/dev/null)"
+    [ "$hay_ajeno" -gt "$propios" ] \
+      || { rm -rf "$ajeno"; echo "    precondición rota: el fetch no trajo la historia ajena"; return 1; }
+
+    # EL SCAN REAL, sin RANGE ni GATES_BASE_REF: cae en el último recurso.
+    local out rc
+    out="$(bash "$PROJECT_ROOT/tools/secret-scan.sh" --range 2>&1)"; rc=$?
+    rm -rf "$ajeno"
+    [ "$rc" = "0" ] \
+      || { echo "    el scan del primer push reportó el secreto de la historia AJENA"
+           echo "    (exit $rc) — el adoptante heredaría hallazgos del template:"
+           printf '%s\n' "$out" | sed 's/^/      /' | head -5; return 1; }
+  }
+  with_temp_repo _case_remote_ajeno
+}

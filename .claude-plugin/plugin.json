@@ -3,7 +3,7 @@
   "displayName": "Agentic Workflow Template",
   "description": "Governance para desarrollo con agentes IA: pirámide de verificación de 9 niveles (veredictos derivados por el sistema, detectores AST, trinquetes, mutación, lección→detector), skills, sub-agentes con contrato VERDICT y hooks en 3 anillos. iOS de referencia, TDD-first.",
   "version": "0.4.0",
-  "author": { "name": "<PROJECT>" },
+  "author": { "name": "iOSAppBaseline" },
   "keywords": ["agents", "governance", "tdd", "ios"],
   "agents": "./.claude/agents/",
   "skills": "./.agents/skills/"

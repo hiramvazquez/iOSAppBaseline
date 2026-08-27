@@ -1,4 +1,4 @@
-# Sub-agentes — <PROJECT>
+# Sub-agentes — iOSAppBaseline
 
 > Roles especializados. Cada `.md` define un agente con su prompt, sus tools y su modelo
 > recomendado. Claude Code los invoca con la tool `Agent`. Cursor los expone vía el symlink

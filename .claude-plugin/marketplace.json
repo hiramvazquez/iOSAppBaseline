@@ -1,6 +1,6 @@
 {
   "name": "agentic-workflow",
-  "owner": { "name": "<PROJECT>" },
+  "owner": { "name": "iOSAppBaseline" },
   "description": "Marketplace interno: tooling de agentes (skills + sub-agentes) de governance.",
   "plugins": [
     {

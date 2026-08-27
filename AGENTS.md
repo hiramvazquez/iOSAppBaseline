@@ -1,4 +1,4 @@
-# <PROJECT> — Reglas de trabajo con agentes (FUENTE CANÓNICA)
+# iOSAppBaseline — Reglas de trabajo con agentes (FUENTE CANÓNICA)
 
 > Este archivo es la **única fuente de verdad** de las reglas del proyecto para agentes de IA.
 > Lo leen nativamente **Cursor, Codex, Copilot, Gemini y otros**. Claude Code lo recibe vía

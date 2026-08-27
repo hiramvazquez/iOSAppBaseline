@@ -45,12 +45,37 @@ BASE=""; [ -f .gitleaks-baseline.json ] && BASE="--baseline-path .gitleaks-basel
 # Ahora el rango se RESUELVE y se VALIDA antes de escanear, y si no se puede,
 # se sale con 3: "no pude mirar" (§14.3), que en local avisa y en CI bloquea.
 # Nunca se cae a escanear otra cosa.
+#
+# ÚLTIMO recurso, y no es un fallback laxo: `HEAD` a secas. Es el caso del
+# PRIMER push de un repo —no hay upstream contra el que comparar y `@{push}`
+# no existe— y ahí lo que este push trae es TODA su historia. Escanear `HEAD`
+# es MÁS estricto que cualquier rango, no menos: cubre cada commit alcanzable
+# desde la punta. Y no arrastra historia ajena: si el repo tiene un remote
+# `template` con historia no relacionada (adopción por copia), esos commits no
+# son ancestros de HEAD y quedan fuera — que es lo correcto, no son suyos.
+# Sin esto, el primer push de todo adoptante moría con exit 3 y la única
+# salida era un override o un RANGE a mano contra una ref que aún no existe.
 _resolver_rango() {
   local r
   for r in "${RANGE:-}" "${GATES_BASE_REF:+$GATES_BASE_REF...HEAD}" '@{push}..HEAD'; do
     [ -z "$r" ] && continue
     git rev-list --count "$r" >/dev/null 2>&1 && { printf '%s' "$r"; return 0; }
   done
+  # Último recurso SOLO si nadie pidió un rango concreto: es el PRIMER push de
+  # un repo (sin upstream, `@{push}` no existe) y lo que ese push trae es toda
+  # su historia. `HEAD` es MÁS estricto que cualquier rango —cubre cada commit
+  # alcanzable desde la punta— y no arrastra historia ajena: los commits de un
+  # remote `template` no son ancestros de HEAD.
+  #
+  # La condición importa y la fija `test_rango_irresoluble_devuelve_3_no_0`: si
+  # ALGUIEN PIDIÓ un rango (RANGE o GATES_BASE_REF) y ese rango no resuelve,
+  # caer aquí escanearía algo DISTINTO de lo que se pidió y lo reportaría como
+  # limpio — el fail-open exacto que este script existe para no cometer. Ahí se
+  # sale con 3. Sin pedido explícito no hay nada que traicionar.
+  if [ -z "${RANGE:-}" ] && [ -z "${GATES_BASE_REF:-}" ] \
+     && git rev-list --count HEAD >/dev/null 2>&1; then
+    printf 'HEAD'; return 0
+  fi
   return 1
 }
 

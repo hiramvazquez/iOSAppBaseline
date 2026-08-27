@@ -1,4 +1,4 @@
-# <PROJECT> — Claude Code
+# iOSAppBaseline — Claude Code
 
 > **Adaptador delgado.** La fuente canónica de reglas es `AGENTS.md`. Este archivo solo
 > la importa y añade la maquinaria que es exclusiva de Claude Code (skills, sub-agentes,

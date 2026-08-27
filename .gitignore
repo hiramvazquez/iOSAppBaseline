@@ -21,13 +21,32 @@ config/secrets/
 # El .xcodeproj es un ARTEFACTO generado por xcodegen desde project.yml:
 # se regenera con `xcodegen generate`. No versionarlo elimina de raíz los
 # conflictos de merge del pbxproj.
-*.xcodeproj/
+*.xcodeproj/*
 *.xcworkspace/
 !*.xcworkspace/contents.xcworkspacedata
+
+# ...con UNA excepcion: el Package.resolved. Es el lockfile de las dependencias
+# —que version exacta de AppFoundation y CoreNetworking entra en el build— y
+# Xcode lo guarda dentro del .xcodeproj. Sin versionarlo, `from: 0.1.0` deja que
+# cada maquina y cada runner de CI resuelvan una version distinta dentro del
+# rango: el build local y el de CI dejan de ser el mismo build, en silencio.
+# Git no puede des-ignorar algo dentro de un directorio ignorado, de ahi que la
+# regla de arriba ignore el CONTENIDO (`*.xcodeproj/*`) y no el directorio, y
+# que haya que reabrir el camino nivel a nivel hasta el archivo:
+!*.xcodeproj/project.xcworkspace/
+*.xcodeproj/project.xcworkspace/*
+!*.xcodeproj/project.xcworkspace/xcshareddata/
+*.xcodeproj/project.xcworkspace/xcshareddata/*
+!*.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/
+*.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/*
+!*.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved
 .build/
 DerivedData/
 .swiftpm/
-Package.resolved
+# (`Package.resolved` a secas anulaba la excepcion de arriba: casa en cualquier
+# nivel y, al ir despues, ganaba. Versionar el lockfile de una APP es correcto;
+# lo que no se versiona es el de un PAQUETE, donde el rango lo fija quien lo
+# consume.)
 xcuserdata/
 *.xcuserstate
 *.moved-aside

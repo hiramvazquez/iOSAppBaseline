@@ -9,14 +9,23 @@ options:
   # sin conflictos de merge — la razón por la que existe xcodegen aquí.
   generateEmptyDirectories: true
 
-# Los dos paquetes propios, por RUTA LOCAL mientras se estabiliza su API.
-# Al publicarlos (tag 1.0.0) esto pasa a `url:` + `from:` y es la ÚNICA línea
-# que cambia — la ventaja concreta de declarar el proyecto en YAML.
+# Los dos paquetes propios, ya publicados. Entraban por ruta local mientras se
+# estabilizaba su API, y esa ruta solo existe en la maquina de quien la escribio:
+# CI fallo con "Invalid local package" porque ../spm-pro no viaja en un checkout.
+# El cambio a `url:` + `from:` fue, como estaba previsto, un cambio local a este
+# archivo — la ventaja concreta de declarar el proyecto en YAML.
 packages:
+  # Ojo con el rango: `from: 0.1.0` es `>=0.1.0 <1.0.0`
+  # — SwiftPM NO trata las 0.x como caso especial (Cargo si, y es facil de
+  # confundir), asi que un `resolve` puede saltar solo a una 0.2.0 con cambios
+  # de API. Lo que fija el build reproducible no es el rango, es el
+  # Package.resolved versionado.
   AppFoundation:
-    path: ../spm-pro/AppFoundation
+    url: https://github.com/hiramvazquez/AppFoundation.git
+    from: 0.1.0
   CoreNetworking:
-    path: ../spm-pro/CoreNetworking
+    url: https://github.com/hiramvazquez/CoreNetworking.git
+    from: 0.1.0
 
 configFiles:
   Debug: Config/Debug.xcconfig

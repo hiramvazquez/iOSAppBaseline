@@ -26,9 +26,10 @@
     se regenera con `xcodegen generate` y no da conflictos de merge.
   - Nivel 0 en ambos targets: Swift 6, `SWIFT_STRICT_CONCURRENCY=complete`, MainActor por
     defecto y warnings como errores.
-  - Los dos SPM enlazados **por ruta local** (`../spm-pro/…`) mientras su API se estabiliza, con
-    un smoke test que los importa y los USA — un `#expect(true)` habría pasado con el proyecto
-    mal cableado.
+  - Los dos SPM entran **por URL publicada y version fijada** (`AppFoundation` 0.1.1,
+    `CoreNetworking` 0.1.0), con un smoke test que los importa y los USA — un `#expect(true)`
+    habria pasado con el proyecto mal cableado. El `Package.resolved` se versiona: es lo unico
+    que hace que el build local y el de CI sean el mismo build.
   - Harness adoptado (caso B de `docs/ADOPTION.md`) con `verify.conf` cableado a
     `xcodegen generate && xcodebuild test`, `layers.conf` ampliado con las reglas propias,
     `project_kind: application`, preset `full` y lefthook instalado.
@@ -42,10 +43,14 @@
    tipados) → adapter TMDB sobre `APIService` con su suite de conformidad compartida con el fake
    → ViewModel sobre `BaseViewModel` → pantallas dentro de `ScreenContainer` con navegación por
    `Coordinator`. Cada capa con su test rojo-primero.
-2. **Publicar los SPM:** cuando la vertical demuestre que su API es cómoda de consumir, van a
-   repos públicos con tag `1.0.0` y aquí cambia **una línea** de `project.yml`: `path:` → `url:`
-   + `from:`. Estrenar antes de etiquetar es deliberado: un 1.0.0 publicado sin haberlo usado
-   nace obsoleto.
+2. **El `1.0.0` de los SPM sigue pendiente, y a proposito.** Publicarlos se adelanto a la
+   vertical porque CI no puede resolver una ruta local (`Invalid local package`), pero se
+   publicaron en `0.x`: estrenar antes de congelar la API sigue siendo la decision: un `1.0.0`
+   etiquetado sin haberlo consumido nace obsoleto. El salto a `1.0.0` es cuando la vertical
+   haya ejercitado la API entera.
+3. **CI aun no ha pasado en verde.** El estreno fallo por dos cosas: los paquetes locales
+   (resuelto aqui) y la descarga de gitleaks del ejemplo del template, cuyo asset cambio de
+   nombre — pendiente de arreglar en el template y re-sincronizar.
 
 ## Decisiones ya tomadas (no re-litigar)
 

@@ -39,8 +39,10 @@ con un mensaje claro: un clon recién hecho nunca se rompe por un archivo que no
   nadie sabe revisar.
 - **Nivel 0 en ambos targets:** Swift 6, `SWIFT_STRICT_CONCURRENCY=complete`, aislamiento
   `MainActor` por defecto y warnings como errores. El compilador es el primer revisor.
-- **Los paquetes entran por ruta local** (`../spm-pro/…`) mientras su API se estabiliza. Al
-  publicarlos con tag, cambia **una línea** de `project.yml`: `path:` → `url:` + `from:`.
+- **Los paquetes entran por URL con versión** (`from: 0.1.0`; el lockfile fija hoy
+  AppFoundation 0.1.1 y CoreNetworking 0.1.0). Siguen en `0.x` a propósito:
+  esta app es la primera que los consume de verdad, y hasta que la vertical de referencia
+  ejercite su API entera no se congela un `1.0.0` del que ya no se puede salir.
 
 ## Verificar
 

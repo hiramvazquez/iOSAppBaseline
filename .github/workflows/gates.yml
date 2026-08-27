@@ -1,0 +1,139 @@
+# ════════════════════════════════════════════════════════════════════
+# Gates — el ANILLO 3 de este proyecto
+# ════════════════════════════════════════════════════════════════════
+# Lo que ninguna máquina local puede garantizar: los mismos gates, en un
+# servidor neutral, sobre lo que de verdad se publicó. Todo el fail-open
+# local de AGENTS.md §14.3 está justificado POR este backstop — sin él, un
+# exit 3 de un detector es fail-open definitivo y silencioso (§14.4).
+#
+# ⚠️ Está PARTIDO EN DOS JOBS a propósito, y no es una optimización menor:
+# `ci/run-gates.sh` incluye el build+tests, que en iOS exige un runner macOS,
+# y macOS consume cupo de Actions a ~10× el ritmo de Linux. Correr los gates
+# baratos (secretos, capas, drift, semgrep, lecciones, markers) en Ubuntu y
+# reservar macOS para lo único que lo necesita —compilar y correr la suite en
+# el simulador— da la misma cobertura por una fracción del cupo. Un cupo
+# agotado ya dejó a otro repo sin Anillo 3 una semana sin que nadie lo
+# declarara; esa es la lección que este reparto aplica.
+name: Gates
+on:
+  push:
+  pull_request:
+  # Para poder lanzar el scan de historial a mano justo después de adoptar,
+  # que es cuando corresponde hacerlo una vez.
+  workflow_dispatch:
+  schedule:
+    # El escaneo de HISTORIAL vive aquí, no en cada PR: en cada PR dejaría el
+    # paso de secretos en rojo perpetuo por hallazgos antiguos, y un gate
+    # siempre rojo se aprende a ignorar.
+    - cron: '17 3 * * *'
+permissions: { contents: read }
+
+jobs:
+  # ── Los gates que no necesitan Xcode (baratos, en cada push) ────────
+  gates:
+    name: gates deterministas (Linux)
+    runs-on: ubuntu-latest
+    # Condiciones EXPLÍCITAS, no por exclusión: `!= 'schedule'` dejaba que un
+    # `workflow_dispatch` —que existe para lanzar el scan de historial a mano—
+    # disparase además el build de macOS, el job caro que este archivo
+    # administra con cuidado, sobre un árbol sin ningún commit nuevo. Con la
+    # forma negativa, cada evento que se añada al `on:` entra aquí por defecto;
+    # con la positiva, entra solo si alguien lo decide. Para relanzar estos dos
+    # a mano está "Re-run jobs" en la UI del run, que no necesita `dispatch`.
+    if: github.event_name == 'push' || github.event_name == 'pull_request'
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }   # historial completo para gitleaks
+
+      - name: Install gitleaks
+        run: |
+          curl -sSL https://github.com/gitleaks/gitleaks/releases/latest/download/gitleaks_linux_x64.tar.gz \
+            | tar -xz -C /usr/local/bin gitleaks
+
+      # Nivel 2 de la pirámide (detectores AST). En CI su ausencia BLOQUEA.
+      - name: Install semgrep
+        run: pipx install semgrep || pip install semgrep
+
+      # El rango se calcula DENTRO del mismo step que corre los gates, no en uno
+      # anterior vía GITHUB_ENV: el `env:` de un step gana sobre el entorno que
+      # herede del job, así que un `GATES_BASE_REF` declarado abajo habría
+      # pisado el valor calculado arriba — y el gate de secretos habría vuelto
+      # a dar verde sin escanear, ahora con un step convincente delante que
+      # haría a nadie sospechar. Un solo step: cero capas compitiendo.
+      #
+      # Por qué `github.event.before` y no `origin/main`: tras el push,
+      # `origin/main` y `HEAD` son el MISMO commit, el rango sale vacío,
+      # gitleaks escanea 0 commits y el gate aprueba sin mirar nada. `before`
+      # es el commit anterior al push, o sea lo que este push trae de verdad.
+      # En el primer push de una rama `before` son todo ceros y no hay rango
+      # posible: ahí se escanea el historial completo, que es justo lo que
+      # corresponde a un repo que estrena CI.
+      - name: Run gates
+        run: |
+          if [ "${{ github.event_name }}" = "push" ]; then
+            BEFORE="${{ github.event.before }}"
+            if [ -z "$BEFORE" ] || [ "$BEFORE" = "0000000000000000000000000000000000000000" ]; then
+              export GATES_SECRET_MODE=history
+            else
+              export GATES_BASE_REF="$BEFORE"
+            fi
+          else
+            export GATES_BASE_REF="origin/${{ github.base_ref }}"
+          fi
+          echo "→ secret-scan: modo=${GATES_SECRET_MODE:-range} base=${GATES_BASE_REF:-(historial)}"
+          bash ci/run-gates.sh
+        env:
+          # El build+tests NO corre aquí: no hay Xcode en Ubuntu y forzarlo
+          # sería un rojo permanente. Lo cubre el job `build`, que es quien de
+          # verdad compila — la renuncia es explícita, no silenciosa.
+          GATES_SKIP_TESTS: "1"
+          # Renuncia EXPLÍCITA (contrato fail-closed): sin esta línea la
+          # ausencia del backend de review falla el job, a propósito. Bórrala
+          # al añadir el secret ANTHROPIC_API_KEY y descomentar su instalación.
+          AI_REVIEW_REQUIRED: "0"
+
+  # ── Lo que solo un Mac puede hacer: compilar y correr la app ────────
+  build:
+    name: build + tests (macOS)
+    runs-on: macos-latest
+    if: github.event_name == 'push' || github.event_name == 'pull_request'
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install xcodegen
+        run: brew install xcodegen
+
+      # El simulador NO se adivina por nombre: los runners cambian de Xcode y
+      # un `name: iPhone 16` hardcodeado convierte una actualización del
+      # runner en un rojo que no tiene nada que ver con el código. Se elige el
+      # primer iPhone disponible del propio runner y se pasa por la variable
+      # que `verify.conf` ya expone.
+      - name: Elegir un simulador que EXISTA en este runner
+        run: |
+          UDID="$(xcrun simctl list devices available iPhone | grep -oE '[0-9A-F-]{36}' | head -1)"
+          [ -n "$UDID" ] || { echo "::error::el runner no trae ningun simulador disponible"; exit 1; }
+          xcrun simctl list devices available iPhone | grep "$UDID"
+          echo "GATES_IOS_DESTINATION=id=$UDID" >> "$GITHUB_ENV"
+
+      # Se invoca el MISMO gate que en local (`verify-run.sh --ci`), no una
+      # copia del comando: él lee `tools/verify.conf` (fuente única) y además
+      # distingue binario-ausente (exit 3) de test-rojo (exit 1). Extraer el
+      # comando a mano aquí habría sido una segunda implementación de la misma
+      # lógica, que es justo lo que este repo persigue evitar.
+      - name: Build + tests (el gate real, no una copia)
+        run: bash tools/verify-run.sh --ci
+
+  # ── Job PROGRAMADO: el historial, donde sí corresponde ─────────────
+  historial-de-secretos:
+    name: historial de secretos (nocturno)
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }
+      - name: Install gitleaks
+        run: |
+          curl -sSL https://github.com/gitleaks/gitleaks/releases/latest/download/gitleaks_linux_x64.tar.gz \
+            | tar -xz -C /usr/local/bin gitleaks
+      - name: Scan history
+        run: bash tools/secret-scan.sh --history

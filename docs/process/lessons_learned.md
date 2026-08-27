@@ -172,8 +172,8 @@ comportamiento. Si el juicio no es mecanizable, decláralo sin fingir cobertura:
   entrada no declarada. Corolario del helper: usa `printf '%b'`, no `'%s'` — con `%s` los `\n`
   se escriben literales y el stub "funciona" de formas absurdas.
 - **Detector:** tools/tests/run-tests.sh (helper `stub`, usado por los 28 stubs de la suite) +
-  la propia suite corriendo en Linux por push (`.github/workflows/harness-ci.yml`) y en macOS
-  a demanda (`harness-ci-macos.yml`) más el pre-push local en el Mac de quien publica
+  la propia suite corriendo en el Anillo 3 de este proyecto
+  (`.github/workflows/gates.yml`, job `gates` en Linux) más el pre-push local
 - **Área:** tools/tests/
 
 ### [2026-08-09] La guía de adopción decía dos cosas incompatibles sobre el mismo flujo

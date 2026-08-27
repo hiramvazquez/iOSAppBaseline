@@ -31,6 +31,12 @@
 _e2e_repo() { # _e2e_repo <función>
   local d rc; d="$(mktemp -d)"
   cp -R "$PROJECT_ROOT/tools" "$d/tools" 2>/dev/null
+  # El sandbox es maquinaria copiada SIN app, así que se declara por lo que ES.
+  # Sin esto hereda el project.conf del repo anfitrión: en un ADOPTANTE eso es
+  # `application`, y `application` declarado + cero fuentes de app es una
+  # CONTRADICCIÓN que scope.sh reporta con exit 3 bajo CI=true — tumbando en CI
+  # tests que localmente pasan. Cazado cableando el Anillo 3 de un adoptante.
+  printf 'project_kind: harness\n' > "$d/tools/project.conf"
   rm -rf "$d/tools/tests"
   cp -R "$PROJECT_ROOT/scripts" "$d/scripts" 2>/dev/null
   cp -R "$PROJECT_ROOT/ci" "$d/ci" 2>/dev/null

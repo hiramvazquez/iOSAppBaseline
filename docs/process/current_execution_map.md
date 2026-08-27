@@ -13,6 +13,14 @@
   vertical que cruza todas las capas y que las skills citan en vez de describir.
 - **Fase:** arranque. Esqueleto y harness listos y verificados; la vertical de películas es lo
   siguiente y aún no existe.
+- **Anillo 3 CABLEADO** (`check-ring3` ✅): `origin` en GitHub y `.github/workflows/gates.yml`
+  con dos jobs — los gates deterministas en Linux (`ci/run-gates.sh` con `GATES_SKIP_TESTS=1`,
+  renuncia explícita: en Ubuntu no hay Xcode) y el build+tests real en macOS invocando
+  `tools/verify-run.sh --ci`, el mismo gate que en local. Se reparte así porque macOS consume
+  cupo de Actions a ~10× y un cupo agotado ya dejó a otro repo sin Anillo 3 una semana sin que
+  nadie lo declarara. El rango del scan de secretos sale de `github.event.before` (el commit
+  anterior al push), no de `origin/main`: tras el push ese ref ya es `HEAD` y el gate aprobaría
+  sin escanear nada. **Aún no ha corrido nunca**: su primera ejecución es el push que lo estrena.
 - **Entregado:**
   - Proyecto declarado en `project.yml` (xcodegen). El `.xcodeproj` es artefacto gitignored:
     se regenera con `xcodegen generate` y no da conflictos de merge.
@@ -34,11 +42,7 @@
    tipados) → adapter TMDB sobre `APIService` con su suite de conformidad compartida con el fake
    → ViewModel sobre `BaseViewModel` → pantallas dentro de `ScreenContainer` con navegación por
    `Coordinator`. Cada capa con su test rojo-primero.
-2. **Anillo 3:** hoy AUSENTE y el preset es `full`. Falta `origin` y un workflow que ejecute
-   `ci/run-gates.sh` (el `github-actions.yml.example` de `ci/examples/` es el punto de partida;
-   los `harness-ci*.yml` heredados testean el harness, no esta app). Mientras no exista, cada
-   exit 3 de un detector es fail-open definitivo — `AGENTS.md` §14.4.
-3. **Publicar los SPM:** cuando la vertical demuestre que su API es cómoda de consumir, van a
+2. **Publicar los SPM:** cuando la vertical demuestre que su API es cómoda de consumir, van a
    repos públicos con tag `1.0.0` y aquí cambia **una línea** de `project.yml`: `path:` → `url:`
    + `from:`. Estrenar antes de etiquetar es deliberado: un 1.0.0 publicado sin haberlo usado
    nace obsoleto.

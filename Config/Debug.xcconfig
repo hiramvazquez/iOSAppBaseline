@@ -1,0 +1,10 @@
+// Configuración de Debug.
+//
+// `#include?` (con interrogante) es include OPCIONAL: si Secrets.xcconfig no
+// existe todavía, el proyecto SIGUE compilando y la app falla en runtime con un
+// mensaje claro, en vez de romper el build con un error de xcconfig que no dice
+// nada. Un clon recién hecho compila; solo la llamada a red pide la clave.
+#include? "Secrets.xcconfig"
+
+SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG
+ONLY_ACTIVE_ARCH = YES

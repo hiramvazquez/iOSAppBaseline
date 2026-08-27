@@ -1,0 +1,5 @@
+// Configuración de Release.
+#include? "Secrets.xcconfig"
+
+SWIFT_COMPILATION_MODE = wholemodule
+VALIDATE_PRODUCT = YES

@@ -1,0 +1,25 @@
+# ── Secretos: JAMÁS al repositorio ──
+Config/Secrets.xcconfig
+
+# ── El proyecto es un ARTEFACTO generado por xcodegen desde project.yml ──
+# Se regenera con `xcodegen generate`. No versionarlo elimina de raíz los
+# conflictos de merge del pbxproj, que es la razón por la que xcodegen está aquí.
+*.xcodeproj/
+*.xcworkspace/
+!*.xcworkspace/contents.xcworkspacedata
+
+# ── Xcode / SPM ──
+.build/
+DerivedData/
+.swiftpm/
+Package.resolved
+xcuserdata/
+*.xcuserstate
+*.moved-aside
+*.hmap
+*.ipa
+*.dSYM.zip
+*.dSYM
+
+# ── macOS ──
+.DS_Store

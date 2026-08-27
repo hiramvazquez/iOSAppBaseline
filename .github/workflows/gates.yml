@@ -45,10 +45,13 @@ jobs:
       - uses: actions/checkout@v4
         with: { fetch-depth: 0 }   # historial completo para gitleaks
 
+      # Un script y no cuatro lineas de curl: la URL que habia aqui pedia un
+      # asset inexistente, GitHub devolvia un 404 en HTML y el fallo asomaba
+      # tres pasos despues como `gzip: stdin: not in gzip format`. El script
+      # fija la version, verifica el checksum y devuelve 3 —no 0— si no pudo
+      # instalar, que es lo que impide que un scanner ausente pase por limpio.
       - name: Install gitleaks
-        run: |
-          curl -sSL https://github.com/gitleaks/gitleaks/releases/latest/download/gitleaks_linux_x64.tar.gz \
-            | tar -xz -C /usr/local/bin gitleaks
+        run: bash ci/install-gitleaks.sh
 
       # Nivel 2 de la pirámide (detectores AST). En CI su ausencia BLOQUEA.
       - name: Install semgrep
@@ -132,8 +135,6 @@ jobs:
       - uses: actions/checkout@v4
         with: { fetch-depth: 0 }
       - name: Install gitleaks
-        run: |
-          curl -sSL https://github.com/gitleaks/gitleaks/releases/latest/download/gitleaks_linux_x64.tar.gz \
-            | tar -xz -C /usr/local/bin gitleaks
+        run: bash ci/install-gitleaks.sh
       - name: Scan history
         run: bash tools/secret-scan.sh --history

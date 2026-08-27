@@ -12,5 +12,5 @@ pipelines:
         name: Gates
         clone: { depth: full }   # historial completo para gitleaks
         script:
-          - curl -sSL https://github.com/gitleaks/gitleaks/releases/latest/download/gitleaks_linux_x64.tar.gz | tar -xz -C /usr/local/bin gitleaks
+          - bash ci/install-gitleaks.sh
           - bash ci/run-gates.sh

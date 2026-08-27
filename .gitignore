@@ -33,13 +33,18 @@ config/secrets/
 # Git no puede des-ignorar algo dentro de un directorio ignorado, de ahi que la
 # regla de arriba ignore el CONTENIDO (`*.xcodeproj/*`) y no el directorio, y
 # que haya que reabrir el camino nivel a nivel hasta el archivo:
-!*.xcodeproj/project.xcworkspace/
-*.xcodeproj/project.xcworkspace/*
-!*.xcodeproj/project.xcworkspace/xcshareddata/
-*.xcodeproj/project.xcworkspace/xcshareddata/*
-!*.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/
-*.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/*
-!*.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved
+# El camino se reabre con el NOMBRE REAL del proyecto, no con `*.xcodeproj`:
+# cuando xcodegen reescribe el proyecto con Xcode abierto, Xcode deja copias
+# ("iOSAppBaseline 2.xcodeproj", "… 3.xcodeproj"), y con el comodin sus
+# Package.resolved tambien se colaban como archivos por versionar. El lockfile
+# que importa es el del proyecto que se compila, y solo ese.
+!iOSAppBaseline.xcodeproj/project.xcworkspace/
+iOSAppBaseline.xcodeproj/project.xcworkspace/*
+!iOSAppBaseline.xcodeproj/project.xcworkspace/xcshareddata/
+iOSAppBaseline.xcodeproj/project.xcworkspace/xcshareddata/*
+!iOSAppBaseline.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/
+iOSAppBaseline.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/*
+!iOSAppBaseline.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved
 .build/
 DerivedData/
 .swiftpm/

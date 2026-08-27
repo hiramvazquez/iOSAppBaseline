@@ -11,7 +11,7 @@ pipeline {
     stage('Gates') {
       steps {
         sh '''
-          curl -sSL https://github.com/gitleaks/gitleaks/releases/latest/download/gitleaks_linux_x64.tar.gz | tar -xz -C "$WORKSPACE/.bin" gitleaks
+          bash ci/install-gitleaks.sh "$WORKSPACE/.bin"
           export PATH="$WORKSPACE/.bin:$PATH"
           GATES_SECRET_MODE=history bash ci/run-gates.sh
         '''

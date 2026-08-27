@@ -22,8 +22,7 @@ jobs:
 
       - name: Install gitleaks
         run: |
-          curl -sSL https://github.com/gitleaks/gitleaks/releases/latest/download/gitleaks_linux_x64.tar.gz \
-            | tar -xz -C /usr/local/bin gitleaks
+          bash ci/install-gitleaks.sh
 
       # Nivel 2 de la pirámide (detectores AST). En CI su ausencia BLOQUEA.
       - name: Install semgrep
@@ -59,7 +58,6 @@ jobs:
         with: { fetch-depth: 0 }
       - name: Install gitleaks
         run: |
-          curl -sSL https://github.com/gitleaks/gitleaks/releases/latest/download/gitleaks_linux_x64.tar.gz \
-            | tar -xz -C /usr/local/bin gitleaks
+          bash ci/install-gitleaks.sh
       - name: Scan history
         run: bash tools/secret-scan.sh --history

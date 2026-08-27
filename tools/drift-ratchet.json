@@ -1,0 +1,5 @@
+{
+  "errors": 0,
+  "warns": 0,
+  "_note": "Techo del drift-ratchet. SOLO baja (tools/drift-ratchet.sh --update). Subirlo a mano = esconder deuda."
+}

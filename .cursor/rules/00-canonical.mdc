@@ -1,0 +1,20 @@
+---
+description: Reglas canónicas del proyecto — punto de entrada para Cursor.
+alwaysApply: true
+---
+
+# Reglas canónicas
+
+La **fuente de verdad** de las reglas de este proyecto es `AGENTS.md` (raíz) y los
+`AGENTS.md` anidados por plataforma. Cursor ya los lee nativamente; esta regla solo refuerza
+lo esencial y enruta.
+
+- Antes de codear: lee el tramo vivo de `docs/process/lessons_learned.md` (hasta “Lecciones
+  mecanizadas”) y `docs/process/current_execution_map.md`; el índice/archivo histórico es bajo demanda.
+- Carga **solo** la skill del área que tocas (`.agents/skills/<área>/SKILL.md`).
+- **Open Question > suposición silenciosa.** Si no sabes un dato (columna, contrato, catálogo), pregunta.
+- **Scope = lo pedido.** No toques tooling/meta-doc fuera de scope (`AGENTS.md` §8).
+- Feature mediana/grande → **PRD antes del primer commit** (`AGENTS.md` §12).
+
+> Los gates duros (leer-skill-antes-de-editar, reviewer-gate, drift) los aplican los hooks de
+> `.cursor/hooks.json`. Esta regla es la capa de instrucción; los hooks son la capa de enforcement.

@@ -1,0 +1,19 @@
+---
+description: Enruta a la skill correcta según el archivo que se está editando.
+globs: <!-- FILL: tus globs reales, ej. **/*.swift, **/*.kt, **/*.tsx -->
+alwaysApply: false
+---
+
+# Skill routing (glob-scoped)
+
+Estás tocando un archivo de código. Antes de editar, asegúrate de haber leído la skill del área
+(matriz completa en `AGENTS.md` §11):
+
+<!-- FILL: ajusta a tus capas reales. Ejemplos: -->
+- UI / pantallas → `.agents/skills/architecture/SKILL.md` (+ `platforms/<plataforma>.md`)
+- Lógica / casos de uso → `.agents/skills/architecture/SKILL.md` + `.agents/skills/domain/SKILL.md`
+- Dominio / entidades → `.agents/skills/domain/SKILL.md`
+- Datos / migraciones → `.agents/skills/security/SKILL.md` (authz/cifrado) + skill de datos
+
+Respeta el patrón de capas y los límites de tamaño (`AGENTS.md` §3-§4). La lógica de negocio
+testeable NO vive en la UI ni en el orquestador.

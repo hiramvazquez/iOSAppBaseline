@@ -1,0 +1,24 @@
+{
+  "schema": 1,
+  "capabilities": {
+    "architecture_cycles": {
+      "title": "Detección de ciclos",
+      "provider": "external",
+      "required_in_full": false,
+      "required_in_lite": false
+    },
+    "imports": {
+      "title": "Dirección de imports",
+      "provider": "tools/check-layers.sh",
+      "required_in_full": true,
+      "required_in_lite": true
+    },
+    "ring3": {
+      "title": "Backstop CI",
+      "provider": "tools/check-ring3.sh",
+      "required_in_full": true,
+      "required_in_lite": false
+    }
+  },
+  "documents": ["docs/claims.md"]
+}

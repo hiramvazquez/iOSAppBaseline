@@ -1,0 +1,94 @@
+# ════════════════════════════════════════════════════════════════════
+# security-patterns.yaml — reglas per-edit del plugin `security-guidance`
+# ════════════════════════════════════════════════════════════════════
+# Se evalúan como MATCH DETERMINISTA cada vez que Claude escribe un archivo,
+# ANTES de cualquier llamada a modelo. Coste: 0 tokens. Latencia: ~0.
+#
+# Es la capa más barata de toda la pirámide de verificación, así que aquí va
+# todo lo que se pueda expresar como patrón textual. Lo que necesite entender
+# el contexto va al revisor de modelo (.claude/claude-security-guidance.md).
+#
+# Campos: rule_name · reminder (≤1KB) · regex | substrings · paths · exclude_paths
+# Los globs de `paths` matchean la ruta COMPLETA → prefija con `**/`.
+# Máximo 50 reglas. Las regex propensas a backtracking catastrófico se descartan.
+
+patterns:
+  # ── Secretos por prefijo conocido ─────────────────────────────────
+  - rule_name: secreto_por_prefijo
+    substrings: ["sk-", "sk_live_", "AKIA", "ghp_", "xoxb-", "xoxp-", "service_role"]
+    exclude_paths: ["**/*.example", "**/*.sample", "**/*.md", "**/tools/tests/**"]
+    reminder: >-
+      Prefijo de credencial detectado. Los secretos van a variable de entorno o
+      secret manager, nunca al código (AGENTS.md §6). Si es un valor de ejemplo,
+      muévelo a un archivo .example.
+
+  - rule_name: clave_privada_inline
+    regex: "BEGIN [A-Z ]*PRIVATE KEY"
+    exclude_paths: ["**/*.example", "**/*.sample", "**/tools/tests/**"]
+    reminder: >-
+      Clave privada embebida en el archivo. Esto nunca va al repo, ni siquiera
+      temporalmente: queda en el historial de git para siempre.
+
+  # ── Datos sensibles en almacenamiento en claro ────────────────────
+  - rule_name: token_en_storage_inseguro
+    regex: "(UserDefaults|SharedPreferences|localStorage|sessionStorage)[^\\n]{0,80}(token|password|secret|apiKey|api_key)"
+    reminder: >-
+      Dato sensible en almacenamiento en claro. Usa Keychain (iOS), Keystore
+      (Android) o cifrado en reposo (AGENTS.md §6). UserDefaults/localStorage
+      son legibles por cualquiera con acceso al dispositivo.
+
+  # ── Fugas por logging ─────────────────────────────────────────────
+  - rule_name: log_de_dato_sensible
+    regex: "(print|console\\.log|NSLog|Log\\.[dviwe]|logger\\.(info|debug|warn))\\([^)]{0,120}(token|password|secret|ssn|creditCard|card_number)"
+    reminder: >-
+      Posible secreto o PII en un log. Los logs se agregan, se exportan y se
+      leen: loguea la SEÑAL (que algo pasó), nunca el DATO (AGENTS.md §6).
+
+  # ── Comparación de secretos no constante ──────────────────────────
+  - rule_name: comparacion_de_token_insegura
+    regex: "(token|secret|signature|hmac|digest)[[:space:]]*(==|===|!=)[[:space:]]*"
+    exclude_paths: ["**/tools/tests/**", "**/*Test*", "**/*test*"]
+    reminder: >-
+      Comparación de secreto con == : vulnerable a timing attack. Usa una
+      comparación en tiempo constante (crypto.timingSafeEqual o equivalente).
+
+  # ── Criptografía débil ────────────────────────────────────────────
+  - rule_name: cripto_debil
+    substrings: ["MD5", "SHA1(", "DES(", "RC4", "ECB"]
+    exclude_paths: ["**/*.md", "**/tools/tests/**"]
+    reminder: >-
+      Primitiva criptográfica rota o inadecuada. Usa SHA-256+ para hashing,
+      bcrypt/argon2 para contraseñas, y AES-GCM (nunca ECB) para cifrado.
+
+  # ── Ejecución dinámica y deserialización ──────────────────────────
+  - rule_name: ejecucion_dinamica
+    regex: "\\b(eval|exec)\\(|new Function\\(|os\\.system\\(|child_process\\.exec\\("
+    exclude_paths: ["**/tools/tests/**"]
+    reminder: >-
+      Ejecución dinámica de código. Si algún fragmento del argumento viene de
+      entrada externa, es RCE. Usa una alternativa que no interprete código.
+
+  # ── Verificación TLS desactivada ──────────────────────────────────
+  - rule_name: tls_desactivado
+    regex: "(verify[[:space:]]*=[[:space:]]*False|rejectUnauthorized[[:space:]]*:[[:space:]]*false|NSAllowsArbitraryLoads|allowsAnyHTTPSCertificate|InsecureSkipVerify[[:space:]]*:[[:space:]]*true)"
+    reminder: >-
+      Verificación de certificado TLS desactivada. Aunque sea "solo para
+      desarrollo", esto se olvida y llega a producción. Usa un certificado
+      local de confianza en su lugar.
+
+  # ── Regla del harness: no tocar los trinquetes a mano ─────────────
+  - rule_name: trinquete_editado_a_mano
+    regex: "\"(min_score|errors|warns)\"[[:space:]]*:"
+    paths: ["**/tools/drift-ratchet.json", "**/tools/mutation-ratchet.json"]
+    reminder: >-
+      Estás editando un TRINQUETE a mano. Solo lo actualiza su script
+      (`--update`), que impone la dirección permitida. Editarlo directamente es
+      esconder deuda (AGENTS.md §9).
+
+  # <!-- FILL: añade los patrones específicos de TU dominio. Son los que más
+  #      valen porque nadie más los puede inferir. Formato:
+  #  - rule_name: query_multitenant_sin_filtro
+  #    regex: "\\.objects\\.all\\(\\)|SELECT \\* FROM (users|accounts)"
+  #    paths: ["**/src/tenants/**"]
+  #    reminder: "Toda query multi-tenant filtra por org_id."
+  # -->

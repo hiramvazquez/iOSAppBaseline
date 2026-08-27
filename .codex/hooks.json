@@ -1,0 +1,17 @@
+{
+  "_comment": "Anillo 2 (Codex CLI). Codex soporta hooks desde 2026: eventos PreToolUse y PostToolUse sobre la ejecución de comandos, con decisión por JSON en stdout ({\"permissionDecision\":\"deny\", ...}). Este wrapper conecta el gate más importante del harness — reviewer-gate (drift-ratchet + capas + semgrep + marker en cada `git commit`) — a través del adapter que traduce el contrato. La lógica vive UNA vez en scripts/agent-hooks/.",
+  "_comment_requisitos": "Requiere habilitar la feature en la config de Codex: [features] codex_hooks = true (según versión, en ~/.codex/config.toml). Ver .codex/config.toml de este repo.",
+  "_comment_limites": "Codex NO tiene equivalente de Stop/SubagentStop/SessionStart: sin canon-enforce al cierre de turno, sin derivación del marker de review, sin reset de sesión. Para Codex el marker se genera con el fallback auditado (scripts/mark-reviewer-run.sh) o preset lite; el backstop sigue siendo Anillo 1 (lefthook) + Anillo 3 (CI). VALIDAR EN VIVO con tools/validate-harness.sh antes de confiar: un wrapper sin validar es un gate presunto.",
+  "hooks": {
+    "PreToolUse": [
+      {
+        "command": "bash scripts/agent-hooks/run-hook.sh scripts/agent-hooks/adapters/gate-adapter.sh codex scripts/agent-hooks/reviewer-gate.sh"
+      }
+    ],
+    "PostToolUse": [
+      {
+        "command": "bash scripts/agent-hooks/run-hook.sh scripts/agent-hooks/track-trajectory.sh"
+      }
+    ]
+  }
+}

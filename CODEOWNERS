@@ -1,0 +1,48 @@
+# ════════════════════════════════════════════════════════════════════
+# CODEOWNERS — quién debe revisar qué
+# ════════════════════════════════════════════════════════════════════
+# Práctica estándar de la industria (Google usa OWNERS por directorio) y
+# complemento humano de `AGENTS.md §8` (disciplina de scope): el harness impide
+# que un agente toque tooling compartido sin aprobación; esto impone quién es
+# la persona que la da.
+#
+# Lo lee GitHub/GitLab automáticamente. Si no usas ninguno de los dos, sigue
+# valiendo como documentación de propiedad.
+#
+# <!-- FILL: sustituye los @placeholder por tus usuarios/equipos reales. -->
+
+# Por defecto: el owner del proyecto.
+*                               @owner
+
+# ── Meta-doc y gates: cambiarlos cambia las reglas de TODO el repo ───
+# AGENTS.md §8 los declara fuera de scope para los agentes. Requieren una
+# persona porque un gate mal puesto bloquea trabajo legítimo, y un gate mal
+# quitado deja pasar lo que debía parar.
+/AGENTS.md                      @owner
+/CLAUDE.md                      @owner
+/.agents/skills/                @owner
+/scripts/agent-hooks/           @owner
+/tools/                         @owner
+/ci/                            @owner
+/lefthook.yml                   @owner
+/.claude/settings.json          @owner
+
+# ── Trinquetes: su dirección es el invariante, no su valor ──────────
+# Un cambio aquí solo es legítimo si viene del `--update` de su script.
+/tools/drift-ratchet.json       @owner
+/tools/mutation-ratchet.json    @owner
+
+# ── Seguridad ────────────────────────────────────────────────────────
+/.gitleaks.toml                 @owner
+/.claude/security-patterns.yaml @owner
+/.claude/claude-security-guidance.md @owner
+/enterprise/                    @owner
+
+# ── Por área de producto ─────────────────────────────────────────────
+# <!-- FILL: reparte tu código real. Ejemplos:
+# /ios/                         @equipo-ios
+# /android/                     @equipo-android
+# /web/                         @equipo-web
+# /**/Domain/                   @equipo-dominio
+# /migrations/                  @equipo-datos @owner
+# -->

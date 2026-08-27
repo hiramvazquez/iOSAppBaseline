@@ -1,0 +1,37 @@
+# ════════════════════════════════════════════════════════════════════
+# Codex CLI — configuración del proyecto
+# ════════════════════════════════════════════════════════════════════
+# Codex lee AGENTS.md (raíz + anidados + ~/.codex/AGENTS.md global) como
+# instrucciones — NO dupliques las reglas aquí. Este archivo es SOLO para
+# configuración propia de Codex (sandbox, aprobaciones, MCP, hooks, etc.).
+#
+# ENFORCEMENT EN CODEX (actualizado 2026):
+#   - Anillo 1: lefthook (git-nativo, dispara igual en Codex) → instálalo.
+#   - Anillo 2: Codex YA soporta hooks (PreToolUse/PostToolUse) → ver
+#     .codex/hooks.json, que conecta el reviewer-gate vía gate-adapter.sh.
+#     Sin equivalente de Stop/SubagentStop: canon-enforce y la derivación
+#     del marker siguen siendo exclusivos de Claude Code.
+#   - Anillo 3: ci/run-gates.sh en tu CI — el backstop de todo lo demás.
+# skill-reminder NO puede bloquear ediciones en Codex (no hay evento de
+# pre-edición); el agente lo sigue por instrucción (AGENTS.md §11).
+# ════════════════════════════════════════════════════════════════════
+
+# Hooks del proyecto (.codex/hooks.json). Según la versión de Codex, este
+# flag puede tener que vivir en ~/.codex/config.toml en vez de aquí —
+# verifícalo con `tools/validate-harness.sh` y la doc de tu versión.
+[features]
+codex_hooks = true
+
+# <!-- FILL: ajusta a tu política. Ejemplos comentados abajo. -->
+
+# Modelo y aprobaciones
+# model = "<!-- FILL -->"
+# approval_policy = "on-request"   # untrusted | on-failure | on-request | never
+
+# Sandbox de escritura/red
+# sandbox_mode = "workspace-write"
+
+# Servidores MCP (si usas)
+# [mcp_servers.<nombre>]
+# command = "<!-- FILL -->"
+# args = []

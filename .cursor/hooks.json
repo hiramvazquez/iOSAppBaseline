@@ -1,0 +1,39 @@
+{
+  "version": 1,
+  "_comment": "Anillo 2 (Cursor). Wrapper delgado sobre los MISMOS scripts compartidos que usa Claude. SOLO eventos que existen en el esquema de hooks de Cursor: beforeSubmitPrompt, beforeShellExecution, beforeMCPExecution, beforeReadFile, afterFileEdit, stop. La versión anterior registraba sessionStart/preToolUse/postToolUse — eventos que NO existen en Cursor: tres gates anunciados que jamás dispararon (gate mudo). Fijado por tools/tests/test_hook_events.sh.",
+  "_comment_paridad": "Lo que Cursor NO puede dar y cómo se compensa: (1) sin evento pre-edición denegable → skill-reminder NO puede bloquear en Cursor; queda como instrucción (.cursor/rules) y el backstop es el Anillo 1+3. (2) sin SubagentStop → el marker de review NO se puede derivar del veredicto de un sub-agente; un usuario Cursor-only usa preset lite (el marker avisa) o el fallback auditado scripts/mark-reviewer-run.sh — documentado en docs/ADOPTION.md. (3) sin sessionStart → los markers de skills-read NO se resetean solos por sesión; bash scripts/agent-hooks/session-start.sh a mano al empezar, o acepta markers de la sesión anterior. Es exactamente la razón de existir de los 3 anillos.",
+  "_comment_contrato": "Los gates hablan exit 2 + stderr (contrato de Claude). Cursor espera {\"permission\":\"deny\"} por stdout → gate-adapter.sh traduce. VALIDAR EN VIVO antes de confiar: tools/validate-harness.sh lista el checklist.",
+  "hooks": {
+    "beforeSubmitPrompt": [
+      {
+        "command": "bash scripts/agent-hooks/run-hook.sh scripts/agent-hooks/inject-context.sh"
+      }
+    ],
+    "beforeShellExecution": [
+      {
+        "command": "bash scripts/agent-hooks/run-hook.sh scripts/agent-hooks/adapters/gate-adapter.sh cursor scripts/agent-hooks/reviewer-gate.sh"
+      }
+    ],
+    "beforeReadFile": [
+      {
+        "command": "bash scripts/agent-hooks/run-hook.sh scripts/agent-hooks/track-reads.sh"
+      }
+    ],
+    "afterFileEdit": [
+      {
+        "command": "bash scripts/agent-hooks/run-hook.sh scripts/agent-hooks/post-edit-verify.sh"
+      },
+      {
+        "command": "bash scripts/agent-hooks/run-hook.sh scripts/agent-hooks/track-trajectory.sh"
+      }
+    ],
+    "stop": [
+      {
+        "command": "bash scripts/agent-hooks/run-hook.sh scripts/agent-hooks/canon-enforce.sh"
+      },
+      {
+        "command": "bash scripts/agent-hooks/run-hook.sh scripts/agent-hooks/drift-stop.sh"
+      }
+    ]
+  }
+}

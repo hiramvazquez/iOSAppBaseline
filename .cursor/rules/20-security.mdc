@@ -1,0 +1,16 @@
+---
+description: Reglas de seguridad — secretos, datos sensibles, almacenamiento.
+alwaysApply: true
+---
+
+# Seguridad (siempre activo)
+
+Resumen accionable de `AGENTS.md` §6 y `.agents/skills/security/SKILL.md`:
+
+- **Cero secretos en código** (API keys, tokens, claves privadas, connection strings) → env / secret manager.
+- **Cero secretos en logs, telemetría o errores** que lleguen al cliente.
+- **Datos sensibles (PII/PHI) → almacenamiento seguro** de la plataforma (Keychain / Keystore / cifrado), nunca en claro.
+- **Sin `--no-verify`**: el gate de secretos (gitleaks) corre en cada commit por una razón.
+
+> Detección mecánica: `gitleaks` (Anillo 1 + CI). Detección semántica: sub-agente `security-reviewer`.
+> Si dudas si algo es sensible, trátalo como si lo fuera.

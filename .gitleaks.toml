@@ -1,0 +1,57 @@
+# ════════════════════════════════════════════════════════════════════
+# gitleaks — configuración de secret-scanning (Anillo 1 + Anillo 3)
+# ════════════════════════════════════════════════════════════════════
+# Extiende el ruleset por defecto de gitleaks (cientos de patrones:
+# AWS, GCP, JWT, claves privadas, tokens de proveedores, etc.) y añade
+# reglas propias de tu org + un allowlist por PATH (nunca por categoría).
+#
+# Regla de oro (best practice 2026):
+#   - Allowlist PATHS de fixtures, no regex de categorías de secreto.
+#   - Para tests que necesitan un secreto: inyéctalo por env en CI,
+#     NO un archivo "fake" con una key de formato real.
+#   - El baseline (.gitleaks-baseline.json) es DEUDA temporal, no exención
+#     permanente: se revisa y encoge cada trimestre.
+# ════════════════════════════════════════════════════════════════════
+
+# Hereda todas las reglas oficiales (recomendado: no reinventes el ruleset).
+[extend]
+useDefault = true
+
+# ── Reglas propias de la org (opcional) ──────────────────────────────
+# <!-- FILL: si tu org tiene un prefijo de API key interno, añádelo. -->
+# [[rules]]
+#   id = "acme-internal-key"
+#   description = "ACME internal API key"
+#   regex = '''acme_(live|test)_[0-9a-zA-Z]{32}'''
+#   tags = ["acme", "internal"]
+
+[allowlist]
+  description = "Allowlist por path — fixtures y ejemplos, nunca secretos reales."
+  paths = [
+    '''(.*?)(example|sample)\.(env|json|toml|ya?ml)$''',
+    '''\.gitleaks-baseline\.json$''',
+    # Caché de gates: JSON generado por `tools/gate-cache.sh`, gitignored, cuyo
+    # campo `"key"` es un sha256 del diff+HEAD+reglas. gitleaks lo marca como
+    # secreto genérico de alta entropía — un hash, no una credencial. Reproducido
+    # en el template y, de forma independiente, en un adoptante: tras una corrida
+    # de semgrep, `--all` daba 3 hallazgos y uno era esto.
+    #
+    # Se allowlistea ESTE path, no `.agents/state/` entero: ahí también vive la
+    # captura de trayectoria, y ensanchar el allowlist a todo el directorio
+    # apagaría el scanner sobre contenido que sí puede acabar teniendo un secreto.
+    #
+    # Y NO se arregla haciendo que `--all` respete .gitignore, que es la otra
+    # salida evidente: ese modo existe justamente para ver lo que NO está en git
+    # —un `.env` con una clave real es gitignored, y es el hallazgo más valioso
+    # que puede dar—. Excluir lo ignorado mataría el modo entero para tapar un
+    # archivo nuestro.
+    '''\.agents/state/gate-cache/.*''',
+    # <!-- FILL: rutas de fixtures de test que contienen tokens OBVIAMENTE falsos -->
+    # '''tests/fixtures/.*''',
+  ]
+  # Tokens de docs: usa formatos OBVIAMENTE inválidos (AKIAFAKE000...) para
+  # que humano y scanner coincidan. Allowlistea el path del doc, no el patrón.
+  regexes = [
+    '''AKIAFAKE[0-9A-Z]{8,}''',
+    '''(?i)example[_-]?(api[_-]?)?key''',
+  ]

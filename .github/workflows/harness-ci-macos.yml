@@ -1,0 +1,26 @@
+# ════════════════════════════════════════════════════════════════════
+# harness-ci-macos — la pata macOS de la suite, A DEMANDA
+# ════════════════════════════════════════════════════════════════════
+# Por qué no corre en cada push: macOS consume minutos de Actions a 10×
+# el ritmo de Linux y era el grueso del gasto por push — así se agotó el
+# presupuesto del plan (f-787568d2, 2026-08-25). La cobertura macOS por
+# push NO se pierde: el pre-push local (lefthook: harness-suite) corre
+# la suite completa en el Mac de quien publica, ANTES de publicar.
+#
+# Cuándo dispararla a mano: antes de un release, o al tocar código
+# sensible a diferencias de OS (stat, sed, date, permisos de archivo —
+# esa clase ya produjo bugs reales, ver el racional en harness-ci.yml).
+#
+#   gh workflow run harness-ci-macos.yml
+name: harness-ci-macos
+on:
+  workflow_dispatch:
+
+jobs:
+  suite:
+    name: suite (macos-latest)
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Suite del harness (los tests de los propios gates)
+        run: bash tools/tests/run-tests.sh

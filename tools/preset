@@ -1,0 +1,2 @@
+full
+# full (equipo, gates bloquean) | lite (personal, gates avisan). Lo lee io.sh (hook_preset).

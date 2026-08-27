@@ -1,0 +1,47 @@
+# ════════════════════════════════════════════════════════════════════
+# .semgrepignore — qué NO escanea el nivel 2
+# ════════════════════════════════════════════════════════════════════
+# El daño de no tener este archivo no es el TIEMPO, es el RUIDO. Sin él,
+# semgrep escaneaba copias enteras del proyecto que viven dentro del repo
+# —worktrees del backlog runner, la copia `_mutated` que genera muter (20 MB
+# en un caso real)— y los avisos de PartialParsing salían mezclados con
+# archivos ajenos al cambio. Un aviso ruidoso se deja de leer, y así es
+# exactamente como se pierde el aviso de verdad (ley del 10%, AGENTS §14.2).
+#
+# Regla para ampliarlo: aquí van COPIAS, ARTEFACTOS y FIXTURES DE DETECTORES
+# (código escrito para ser detectado, con su propio test que sí lo escanea).
+# JAMÁS código fuente del producto que quieras excluir porque "da muchos
+# hallazgos": eso último es desactivar el gate con otro nombre.
+
+# ── Fixtures de los propios detectores ───────────────────────────────
+# Código escrito PARA ser detectado: si contara en el scan normal inflaría el
+# trinquete y el nivel 2 nacería en rojo. Se escanea únicamente desde su test
+# (tools/tests/test_semgrep_rules.sh), que monta un sandbox sin este archivo.
+# Es la TERCERA categoría legítima de este ignore, junto a copias y artefactos
+# — y la única excepción a "jamás código fuente", porque este código no es del
+# producto: es el corpus de prueba del detector.
+tools/semgrep/fixtures/
+
+# ── Copias del propio proyecto que viven dentro del repo ─────────────
+.agents/worktrees/
+*_mutated/
+.muter/
+
+# ── Estado local del harness (gitignored, no es código) ──────────────
+.agents/state/
+
+# ── Artefactos de build por plataforma ───────────────────────────────
+.build/
+DerivedData/
+build/
+Pods/
+Carthage/
+node_modules/
+dist/
+target/
+.gradle/
+vendor/
+
+# ── Dependencias gestionadas ─────────────────────────────────────────
+*.xcframework/
+Packages/

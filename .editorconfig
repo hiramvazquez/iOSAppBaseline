@@ -1,0 +1,32 @@
+# Nivel 0 de la pirámide de verificación: hacer el error imposible.
+# Un diff lleno de ruido de whitespace esconde el cambio real — para el
+# reviewer humano y para el de IA. Esto lo elimina en el editor, antes de
+# que llegue a existir.
+# https://editorconfig.org
+
+root = true
+
+[*]
+charset = utf-8
+end_of_line = lf
+insert_final_newline = true
+trim_trailing_whitespace = true
+indent_style = space
+indent_size = 2
+
+# <!-- FILL: ajusta a las convenciones de TU stack. -->
+[*.{swift,kt,kts,java}]
+indent_size = 4
+
+[*.py]
+indent_size = 4
+
+[*.{go,mk}]
+indent_style = tab
+
+[*.md]
+# En Markdown, dos espacios finales son un salto de línea intencional.
+trim_trailing_whitespace = false
+
+[Makefile]
+indent_style = tab

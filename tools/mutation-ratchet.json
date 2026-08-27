@@ -1,0 +1,5 @@
+{
+  "min_score": 0,
+  "measured": false,
+  "_note": "measured:false ⇒ el nivel 4 NUNCA SE HA MEDIDO en este repo. NO es un piso de 0: es la ausencia de veredicto. `--update` se niega a escribir un piso de 0 justamente para que este archivo no pueda disfrazar un silencio de suelo. En cuanto midas de verdad, el piso sube y measured pasa a true — y a partir de ahí SOLO SUBE (tools/mutation-score.sh --update). Bajarlo a mano = esconder deuda (AGENTS.md §9)."
+}

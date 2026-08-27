@@ -1,14 +1,29 @@
-# ── Secretos: JAMÁS al repositorio ──
-Config/Secrets.xcconfig
+# ─── Agentic workflow runtime state (NO commitear) ───────────────────
+# Markers de skills leídos + baseline de drift (se regeneran por sesión).
+.agents/state/
+# (Los markers del reviewer-gate y el override_log viven en .agents/state/markers/,
+#  ya cubierto por la línea .agents/state/ de arriba — no dupliques rutas muertas aquí.)
 
-# ── El proyecto es un ARTEFACTO generado por xcodegen desde project.yml ──
-# Se regenera con `xcodegen generate`. No versionarlo elimina de raíz los
-# conflictos de merge del pbxproj, que es la razón por la que xcodegen está aquí.
+# ─── Secretos (NUNCA al repo) ────────────────────────────────────────
+# La clave de TMDB vive aquí; su plantilla (Secrets.example.xcconfig) SÍ se
+# commitea. Ver Config/Secrets.example.xcconfig.
+Config/Secrets.xcconfig
+.env
+.env.*
+!.env.example
+*.pem
+*.p12
+*.keystore
+secrets/
+config/secrets/
+
+# ─── iOS / Xcode ─────────────────────────────────────────────────────
+# El .xcodeproj es un ARTEFACTO generado por xcodegen desde project.yml:
+# se regenera con `xcodegen generate`. No versionarlo elimina de raíz los
+# conflictos de merge del pbxproj.
 *.xcodeproj/
 *.xcworkspace/
 !*.xcworkspace/contents.xcworkspacedata
-
-# ── Xcode / SPM ──
 .build/
 DerivedData/
 .swiftpm/
@@ -21,5 +36,22 @@ xcuserdata/
 *.dSYM.zip
 *.dSYM
 
-# ── macOS ──
+# ─── OS / editor ─────────────────────────────────────────────────────
 .DS_Store
+*.log
+
+# Personal de cada dev (Claude Code lo genera solo; jamás al repo)
+.claude/settings.local.json
+
+# Worktrees del backlog runner (runtime, jamás al repo)
+.agents/worktrees/
+# Los worktrees de sub-agentes de Claude Code viven aquí. Son worktrees de git:
+# nunca se commitean desde el repo padre, y su trabajo vive en SU rama.
+.claude/worktrees/
+
+# Carpetas TRANSITORIAS del puente Claude↔disco (jamás al repo):
+# _pending-claude/ = archivos de .claude/ pendientes de mover a mano;
+# _to_delete/ = papelera del bridge (no puede borrar). Si git las ve, el
+# clasificador del review-marker las trata como producto → bloqueo confuso.
+_pending-claude/
+_to_delete/

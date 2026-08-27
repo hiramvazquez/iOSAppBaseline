@@ -1,0 +1,17 @@
+# OPCIONAL — ejemplo Azure Pipelines. Copia a azure-pipelines.yml.
+#
+# ⚠️  ci/run-gates.sh es FAIL-CLOSED: instala también `semgrep` (pip) en el
+# runner, y decide EXPLÍCITAMENTE sobre la review de IA — exporta
+# AI_REVIEW_REQUIRED=0 para renunciar, o instala Claude Code + API key para
+# activarla. Sin decidir, la ausencia del binario FALLA el job (a propósito).
+# Ver ci/examples/github-actions.yml.example para el patrón completo.
+trigger: [main, develop]
+pool: { vmImage: ubuntu-latest }
+steps:
+  - checkout: self
+    fetchDepth: 0   # historial completo para gitleaks
+  - script: |
+      curl -sSL https://github.com/gitleaks/gitleaks/releases/latest/download/gitleaks_linux_x64.tar.gz | tar -xz -C /usr/local/bin gitleaks
+      bash ci/run-gates.sh
+    displayName: Run gates
+    env: { GATES_SECRET_MODE: history }

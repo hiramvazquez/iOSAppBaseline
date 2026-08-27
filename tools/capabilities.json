@@ -1,0 +1,52 @@
+{
+  "schema": 1,
+  "capabilities": {
+    "architecture_complexity": {
+      "title": "Complejidad ciclomática",
+      "provider": "tools/architecture-check.sh architecture_complexity",
+      "required_in_full": false,
+      "required_in_lite": false
+    },
+    "architecture_cycles": {
+      "title": "Detección de ciclos",
+      "provider": "tools/architecture-check.sh architecture_cycles",
+      "required_in_full": false,
+      "required_in_lite": false
+    },
+    "architecture_import_direction": {
+      "title": "Dirección de imports directos",
+      "provider": "tools/check-layers.sh",
+      "required_in_full": true,
+      "required_in_lite": true
+    },
+    "review_marker": {
+      "title": "Evidencia de review ligada al diff",
+      "provider": "tools/check-review-marker.sh",
+      "required_in_full": true,
+      "required_in_lite": false
+    },
+    "ring3": {
+      "title": "Backstop de CI",
+      "provider": "tools/check-ring3.sh",
+      "required_in_full": true,
+      "required_in_lite": false
+    },
+    "semgrep": {
+      "title": "Análisis AST funcional",
+      "provider": "tools/probe-capability.sh semgrep",
+      "required_in_full": true,
+      "required_in_lite": true
+    },
+    "skill_reminder": {
+      "title": "Lectura obligatoria por path",
+      "provider": "scripts/agent-hooks/skill-reminder.sh",
+      "required_in_full": true,
+      "required_in_lite": false
+    }
+  },
+  "documents": [
+    "README.md",
+    "docs/ADOPTION.md",
+    "ci/README.md"
+  ]
+}

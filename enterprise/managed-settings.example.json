@@ -1,0 +1,30 @@
+{
+  "$schema": "https://json.schemastore.org/claude-code-settings.json",
+  "_comment": "EJEMPLO de managed-settings.json (Claude Code). Es la capa de MAYOR precedencia: ni los flags de CLI ni los settings de proyecto/usuario la pueden anular. Despliégalo en la ruta de OS (ver enterprise/README.md), NO en el repo. Quita los _comment al usarlo.",
+  "_comment_scope": "Espejo org-wide del Anillo 0 del repo (.claude/settings.json → permissions). La diferencia: aquello lo puede editar el propio repo; esto no lo anula nadie. Mantén AMBOS en sync — si añades una prohibición nueva al repo que deba ser inescapable, súbela también aquí.",
+  "_comment_sintaxis": "OJO: la sintaxis de patrones Bash con contenido tras el subcomando (p. ej. 'git commit --no-verify*') no está garantizada por la doc para todos los shapes de comando (prefijos de variables, comandos compuestos). Verifica cada regla en vivo (tools/validate-harness.sh, checklist Anillo 0). La garantía dura de las prohibiciones de flags es el git-guard de scripts/agent-hooks/reviewer-gate.sh — estos denies son la capa extra org-wide, no la única.",
+  "permissions": {
+    "deny": [
+      "Bash(git push --force*)",
+      "Bash(git push -f*)",
+      "Bash(git commit --no-verify*)",
+      "Bash(git commit -n*)",
+      "Bash(git commit --amend*)",
+      "Bash(git reset --hard*)",
+      "Bash(sudo:*)",
+      "Read(./.env)",
+      "Read(./.env.*)",
+      "Read(**/*.pem)",
+      "Read(**/*.p12)",
+      "Read(**/*.keystore)",
+      "Read(./secrets/**)",
+      "Write(./tools/drift-ratchet.json)",
+      "Write(./tools/mutation-ratchet.json)",
+      "Edit(./tools/drift-ratchet.json)",
+      "Edit(./tools/mutation-ratchet.json)"
+    ]
+  },
+  "_comment_ratchets": "Los *-ratchet.json son trinquetes: solo sus scripts (--update) pueden moverlos, y en una dirección. Negar su edición org-wide cierra el hueco de un settings.json de repo modificado.",
+  "_comment_hooks": "Si quieres que los hooks del Anillo 2 sean también no-anulables, añade allowManagedHooksOnly + la config de hooks aquí (ver doc de Claude Code 'server-managed settings').",
+  "disableBypassPermissionsMode": "disable"
+}

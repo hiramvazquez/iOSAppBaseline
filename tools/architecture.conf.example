@@ -1,0 +1,13 @@
+{
+  "schema": 1,
+  "capabilities": {
+    "architecture_cycles": {
+      "status": "unsupported",
+      "reason": "Este stack no tiene detector de ciclos configurado"
+    },
+    "architecture_complexity": {
+      "status": "unsupported",
+      "reason": "Este stack no tiene detector de complejidad configurado"
+    }
+  }
+}

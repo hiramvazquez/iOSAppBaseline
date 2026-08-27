@@ -1,0 +1,206 @@
+{
+  "$schema": "https://json.schemastore.org/claude-code-settings.json",
+  "_comment": "Anillo 2 (Claude Code). Dos partes: (1) `permissions` = enforcement NATIVO, evaluado antes de que la tool corra — más fuerte y más barato que cualquier hook; (2) `hooks` = wrapper delgado sobre los scripts COMPARTIDOS de scripts/agent-hooks/. La lógica vive una sola vez; otros clientes usan los mismos scripts vía sus wrappers (.cursor/hooks.json, .codex/hooks.json).",
+  "_comment_permissions": "AGENTS.md §7 dice 'jamás --no-verify, --force a main, ni push sin aprobación'. Este bloque quedó REESCRITO con la evidencia del primer proyecto real (findings f-3c027a85 y el aviso del propio Claude Code en los logs de los runs): (1) las reglas `Write(path)` eran INERTES — solo `Edit(path)` es evaluada por el chequeo de permisos de archivos, y cubre TODAS las tools de edición, Write incluida; (2) los patrones Bash con comodín INTERMEDIO (`git commit:*--no-verify*`) jamás matchearon. Por eso aquí solo quedan formas GARANTIZADAS: paths con Read/Edit, y Bash por prefijo. Las prohibiciones de FLAGS de git (--no-verify, --amend, --force, reset --hard, clean -f) viven en el git-guard de `reviewer-gate.sh`, que ve el comando completo y bloquea determinista — esa es su capa correcta, no esta. Lo fija tools/tests/test_hook_events.sh::test_permissions_sin_sintaxis_inerte.",
+  "permissions": {
+    "deny": [
+      "Bash(sudo:*)",
+      "Read(./.env)",
+      "Read(./.env.*)",
+      "Read(./**/*.pem)",
+      "Read(./**/*.p12)",
+      "Read(./**/*.keystore)",
+      "Read(./secrets/**)",
+      "Edit(./.env)",
+      "Edit(./.env.*)",
+      "Edit(./secrets/**)",
+      "Edit(./tools/drift-ratchet.json)",
+      "Edit(./tools/mutation-ratchet.json)",
+      "Edit(./tools/preset)",
+      "Edit(./tools/project.conf)",
+      "Edit(./.agents/state/**)"
+    ],
+    "ask": [
+      "Bash(git push:*)",
+      "Bash(gh pr merge:*)",
+      "Bash(gh release:*)",
+      "Bash(npm publish:*)",
+      "Edit(./AGENTS.md)",
+      "Edit(./lefthook.yml)"
+    ],
+    "allow": [
+      "Bash(bash tools/check-drift.sh)",
+      "Bash(bash tools/check-layers.sh)",
+      "Bash(bash tools/tests/run-tests.sh:*)",
+      "Bash(bash tools/drift-ratchet.sh --check)",
+      "Bash(bash tools/validate-harness.sh)",
+      "Bash(bash ci/run-gates.sh)",
+      "Bash(bash tools/findings/findings.sh:*)",
+      "Bash(bash tools/check-diff-nature.sh:*)",
+      "Bash(git status:*)",
+      "Bash(git diff:*)",
+      "Bash(git log:*)"
+    ]
+  },
+  "_comment_findings_allow": "findings.sh está en `allow` A PROPÓSITO, y no contradice el principio de desconfiar de la evidencia escrita por el modelo: el ledger NO es evidencia, es un INVENTARIO que AGENTS.md §10 obliga al agente a mantener (\"reportar = loguear al ledger\"). Los archivos de los que sí desconfiamos —el marker de review y los trinquetes— siguen denegados. Sin este allow, un run headless no podía usar el CLI y escribía el JSONL A MANO: exactamente lo que no queremos, porque el CLI valida esquema, deduplica por id y protege los estados terminales, y la escritura a mano no hace nada de eso. Denegar la herramienta segura no impide la escritura: la empuja al camino inseguro.",
+  "_comment_ratchets": "Los dos *-ratchet.json y tools/preset están en `deny` de Write/Edit a propósito: son TRINQUETES y el interruptor de los gates. Los ratchets solo los actualiza su propio script (`--update`), que impone la dirección permitida — drift solo baja, mutación solo sube. Nota: `--update` de drift-ratchet NO está en allow a propósito: aflojar un trinquete requiere intervención del humano.",
+  "_comment_marker_deny": "`.agents/state/**` y `Bash(*reviewer_run.txt*)` son mitigación PARCIAL, declarada como tal: frenan un `cat > marker` naive, pero una redirección construida dinámicamente las rodea (ver f-marker-spoof en tools/findings/). Efecto secundario conocido: los patrones de Bash no distinguen leer de escribir, así que también bloquean `cat marker`. Para INSPECCIONAR el marker usa la tool Read, que no está denegada. La defensa real contra un agente adversario no es esto: es el Anillo 3, donde el marker no viaja.",
+  "_comment_plugins": "security-guidance revisa el código que Claude escribe en 3 profundidades (per-edit sin coste de tokens, fin de turno, y por commit) con un revisor de contexto FRESCO — no le pide al mismo modelo que se autoevalúe. Se extiende con .claude/claude-security-guidance.md y .claude/security-patterns.yaml. Instalar una vez: /plugin marketplace add anthropics/claude-plugins-official",
+  "enabledPlugins": {
+    "security-guidance@claude-plugins-official": true
+  },
+  "_comment_SessionStart": "SessionStart dispara con source: startup|resume|clear|compact. El RESET (borrar markers de skills + baseline de drift) solo tiene sentido en sesiones NUEVAS (startup|clear). En `resume` solo se reporta estado: resetear ahí obligaba a re-leer skills a mitad de trabajo. En `compact` NO se resetea nada — se reinyecta el digest de reglas (post-compact.sh): resetear tras compactar re-baseaba el drift INCLUYENDO los errores recién introducidos, que pasaban a baseline y nunca se bloqueaban. (Antes esto vivía en un evento 'PostCompact' que NO EXISTE en Claude Code: el hook jamás disparó. Lección: docs/process/lessons_learned.md → test_hook_events.sh.)",
+  "hooks": {
+    "SessionStart": [
+      {
+        "matcher": "startup|clear",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash scripts/agent-hooks/run-hook.sh scripts/agent-hooks/session-start.sh",
+            "timeout": 10
+          }
+        ]
+      },
+      {
+        "matcher": "resume",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash scripts/agent-hooks/run-hook.sh scripts/agent-hooks/session-start.sh --report",
+            "timeout": 10
+          }
+        ]
+      },
+      {
+        "matcher": "compact",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash scripts/agent-hooks/run-hook.sh scripts/agent-hooks/post-compact.sh",
+            "timeout": 10
+          }
+        ]
+      }
+    ],
+    "_comment_UserPromptSubmit": "Estado VIVO (findings abiertos, árbol sucio) inyectado cada turno, en vez de vivir congelado en CLAUDE.md inflándolo.",
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash scripts/agent-hooks/run-hook.sh scripts/agent-hooks/inject-context.sh",
+            "timeout": 5
+          }
+        ]
+      }
+    ],
+    "_comment_PreToolUse_timeouts": "Presupuestos de tiempo REALES: reviewer-gate corre drift+capas+semgrep en cada `git commit` y en un repo mediano eso no cabe en 30s. Un PreToolUse que agota su timeout NO bloquea — el gate desaparece en silencio, que es el peor modo de fallo posible. Por eso 90s, y el propio gate loguea telemetría si consume más de la mitad del presupuesto.",
+    "PreToolUse": [
+      {
+        "matcher": "Edit|Write|MultiEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash scripts/agent-hooks/run-hook.sh scripts/agent-hooks/skill-reminder.sh",
+            "timeout": 10
+          }
+        ]
+      },
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash scripts/agent-hooks/run-hook.sh scripts/agent-hooks/reviewer-gate.sh",
+            "timeout": 90
+          }
+        ]
+      }
+    ],
+    "_comment_PostToolUse": "post-edit-verify es el bucle de verificación IN-LOOP: lint/typecheck de los archivos recién tocados, con el resultado de vuelta al agente vía additionalContext en el MISMO turno. Es el gate de mayor ROI del harness: sin él, un error del turno 3 se descubre en el turno 40. Incluye Bash a propósito: una sesión medida hizo 589 de 609 tool-calls por Bash y CERO Edit, así que 533 líneas de shell nuevo no recibieron ni una pasada del nivel 1 (f-ee9787d9). Qué archivos escribió un comando NO se adivina parseándolo: lib/writes.sh observa el efecto contra una marca que deja el PreToolUse. track-failure detecta el bucle de reintentos LEYENDO el resultado de la tool (éxito resetea la racha, fallo la incrementa) — antes vivía en un evento 'PostToolUseFailure' que no existe.",
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write|MultiEdit|Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash scripts/agent-hooks/run-hook.sh scripts/agent-hooks/post-edit-verify.sh",
+            "timeout": 30
+          }
+        ]
+      },
+      {
+        "matcher": "Read",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash scripts/agent-hooks/run-hook.sh scripts/agent-hooks/track-reads.sh",
+            "timeout": 3
+          }
+        ]
+      },
+      {
+        "matcher": "Bash|Edit|Write|MultiEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash scripts/agent-hooks/run-hook.sh scripts/agent-hooks/track-failure.sh",
+            "timeout": 5
+          }
+        ]
+      },
+      {
+        "matcher": "Read|Edit|Write|MultiEdit|Bash|Grep|Glob|Task|WebFetch|WebSearch|mcp__.*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash scripts/agent-hooks/run-hook.sh scripts/agent-hooks/track-trajectory.sh",
+            "timeout": 3
+          }
+        ]
+      }
+    ],
+    "_comment_SubagentStop": "EL INVARIANTE Nº1 DEL HARNESS: el marker de review lo escribe el SISTEMA a partir del veredicto real del sub-agente, nunca el modelo. Sin esto, el reviewer-gate es decorativo. process-judge incluido: su veredicto vacía la cola de juicio (y NUNCA escribe el marker canónico del reviewer).",
+    "SubagentStop": [
+      {
+        "matcher": "reviewer|security-reviewer|design-reviewer|process-judge",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash scripts/agent-hooks/run-hook.sh scripts/agent-hooks/capture-review-verdict.sh",
+            "timeout": 10
+          }
+        ]
+      }
+    ],
+    "_comment_SessionEnd": "Si la sesión tocó código y nadie corrió el process-judge, la sesión queda ENCOLADA (judge-queue) y visible cada turno hasta que un juicio real la cierre. Solo en preset `full`: en `lite` (uso personal) la cola era ruido perpetuo sin un segundo humano que exigiera el juicio.",
+    "SessionEnd": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash scripts/agent-hooks/run-hook.sh scripts/agent-hooks/session-end.sh",
+            "timeout": 5
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash scripts/agent-hooks/run-hook.sh scripts/agent-hooks/canon-enforce.sh",
+            "timeout": 60
+          },
+          {
+            "type": "command",
+            "command": "bash scripts/agent-hooks/run-hook.sh scripts/agent-hooks/drift-stop.sh",
+            "timeout": 60
+          }
+        ]
+      }
+    ]
+  }
+}

@@ -1,0 +1,132 @@
+# ════════════════════════════════════════════════════════════════════
+# universal.yaml — reglas AST que aplican a CUALQUIER proyecto
+# ════════════════════════════════════════════════════════════════════
+# Por qué Semgrep y no grep: estas reglas entienden el ÁRBOL SINTÁCTICO.
+# Un `grep` matchea el patrón dentro de un comentario, de un string o del
+# propio test que documenta el anti-patrón → falsos positivos → el equipo
+# (y el agente) aprenden a ignorar el detector.
+#
+# Google midió el umbral: por encima de ~10% de falsos positivos los
+# analizadores se descartan sistemáticamente. Ese es el presupuesto.
+#
+# Instalación:  pip install semgrep   ·   brew install semgrep
+# Uso:          bash tools/semgrep-scan.sh
+
+rules:
+  # ── Secretos: defensa redundante al gitleaks, a nivel de AST ──────
+  - id: secreto-hardcodeado
+    languages: [python, javascript, typescript, go, java, kotlin, ruby, php, csharp]
+    severity: ERROR
+    message: >-
+      Credencial hardcodeada. Va a variable de entorno o secret manager
+      (AGENTS.md §6). Recuerda: una vez commiteado, queda en el historial
+      de git para siempre — borrarlo del código no lo elimina.
+    pattern-regex: '["'']((sk-[A-Za-z0-9]{20,})|(AKIA[0-9A-Z]{16})|(ghp_[A-Za-z0-9]{36})|(xox[baprs]-[A-Za-z0-9-]{10,}))["'']'
+    paths:
+      exclude: ["*.example", "*.sample", "test/**", "tests/**", "**/*_test.*", "**/*.test.*"]
+
+  # ── Excepciones tragadas: el anti-patrón que más caro sale ────────
+  # Un catch vacío convierte un fallo en un comportamiento incorrecto
+  # silencioso. AGENTS.md §6: paths sensibles fail-closed; fail-silent nunca.
+  - id: excepcion-tragada
+    languages: [python]
+    severity: WARNING
+    message: >-
+      Excepción capturada y descartada. Un error silencioso es peor que un
+      crash: el sistema sigue con estado inválido y el bug aparece lejos de
+      su causa. Loguea la señal (sin el dato) o propaga.
+    patterns:
+      - pattern-either:
+          - pattern: |
+              try:
+                  ...
+              except ...:
+                  pass
+          - pattern: |
+              try:
+                  ...
+              except ...:
+                  ...
+                  return None
+    paths:
+      exclude: ["test/**", "tests/**", "**/*_test.py"]
+
+  - id: excepcion-tragada-js
+    languages: [javascript, typescript]
+    severity: WARNING
+    message: >-
+      Catch vacío: el error desaparece sin dejar rastro. Loguea la señal
+      (sin el dato sensible) o propaga (AGENTS.md §6).
+    pattern: |
+      try { ... } catch ($E) { }
+    paths:
+      exclude: ["test/**", "tests/**", "**/*.test.*", "**/*.spec.*"]
+
+  # ── Ramificar sobre texto en lenguaje natural (rompe i18n, §3) ────
+  # Esta es la versión AST del grep frágil que había en check-drift.sh:
+  # aquí solo matchea comparaciones REALES, no strings ni comentarios.
+  # Separada por familia de lenguaje a propósito: `===` no existe en C#/Java/Go
+  # y una regla con un patrón inválido para UNO de sus `languages` hace fallar
+  # la carga de TODO el archivo. `--validate` no lo detecta (solo valida el
+  # YAML); solo se ve ejecutando semgrep de verdad.
+  - id: branch-sobre-texto-natural
+    languages: [python, go, java, kotlin, csharp]
+    severity: WARNING
+    message: >-
+      Comparación de lógica contra un literal de texto en lenguaje natural.
+      Esto se rompe en cuanto añadas otro idioma o el backend cambie la
+      redacción (AGENTS.md §3). Clasifica con un enum o una clave i18n.
+    pattern: $X == "=~/^[a-záéíóúñ]{4,}( [a-záéíóúñ]+)+$/"
+    paths:
+      include: ["**/domain/**", "**/Domain/**", "**/logic/**", "**/usecases/**", "**/UseCases/**"]
+
+  - id: branch-sobre-texto-natural-js
+    languages: [javascript, typescript]
+    severity: WARNING
+    message: >-
+      Comparación de lógica contra un literal de texto en lenguaje natural.
+      Esto se rompe en cuanto añadas otro idioma o el backend cambie la
+      redacción (AGENTS.md §3). Clasifica con un enum o una clave i18n.
+    pattern-either:
+      - pattern: $X === "=~/^[a-záéíóúñ]{4,}( [a-záéíóúñ]+)+$/"
+      - pattern: $X == "=~/^[a-záéíóúñ]{4,}( [a-záéíóúñ]+)+$/"
+    paths:
+      include: ["**/domain/**", "**/Domain/**", "**/logic/**", "**/usecases/**", "**/UseCases/**"]
+
+  # ── Verificación TLS desactivada ──────────────────────────────────
+  - id: tls-sin-verificar
+    languages: [python, javascript, typescript, go]
+    severity: ERROR
+    message: >-
+      Verificación de certificado TLS desactivada. "Es solo para desarrollo"
+      es exactamente cómo esto llega a producción. Usa un certificado local
+      de confianza.
+    pattern-either:
+      - pattern: verify=False
+      - pattern: "rejectUnauthorized: false"
+      - pattern: "InsecureSkipVerify: true"
+
+  # ── Aleatoriedad no criptográfica para material de seguridad ──────
+  - id: random-no-criptografico
+    languages: [python, javascript, typescript, java]
+    severity: ERROR
+    message: >-
+      Generador pseudoaleatorio no criptográfico usado para material de
+      seguridad (token, salt, id de sesión). Es predecible. Usa el CSPRNG
+      de la plataforma (secrets, crypto.randomBytes, SecureRandom).
+    # Sin `pattern-inside: def $F(...)`: era sintaxis Python en una regla que
+    # también declara Java/JS/TS, y eso rompía la carga del archivo entero.
+    # El acotado real lo hace `paths.include`, que es lo que se pretendía.
+    pattern-either:
+      - pattern: random.random()
+      - pattern: Math.random()
+    paths:
+      include: ["**/auth/**", "**/security/**", "**/crypto/**", "**/token*/**"]
+
+# <!-- FILL: añade las reglas de TU proyecto en tools/semgrep/rules/<area>.yaml.
+#      La regla de oro: cada entrada de docs/process/lessons_learned.md que sea
+#      mecanizable debería acabar aquí. Ese es el bucle que hace que la
+#      necesidad de review humano decrezca:
+#        error cometido → lección escrita → regla Semgrep → imposible repetirlo.
+#      Escribe la regla en el MISMO cambio que la lección (tools/lesson-detector-link.sh
+#      lo verifica). -->

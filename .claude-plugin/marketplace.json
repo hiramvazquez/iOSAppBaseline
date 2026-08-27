@@ -1,0 +1,12 @@
+{
+  "name": "agentic-workflow",
+  "owner": { "name": "<PROJECT>" },
+  "description": "Marketplace interno: tooling de agentes (skills + sub-agentes) de governance.",
+  "plugins": [
+    {
+      "name": "agentic-workflow-template",
+      "source": "./",
+      "description": "Skills + sub-agentes de governance (iOS, TDD-first). Para distribución remota, cambia source a {\"source\":\"github\",\"repo\":\"<OWNER>/<REPO>\"}."
+    }
+  ]
+}

@@ -1,0 +1,19 @@
+#!/usr/bin/env bash
+# Hook del backend fake. Meta-doc/tooling no requiere reviewer; un commit de
+# producto exige que la línea INMEDIATAMENTE anterior apruebe el mismo SHA.
+set -uo pipefail
+case "${FAKE_AUTONOMY_EVIDENCE:-}" in /*) : ;; *) exit 1 ;; esac
+NON_PRODUCT='^(docs/|ci/|\.github/|tools/|scripts/|backlog/|enterprise/|\.claude/|\.codex/|\.cursor/|\.agents/|README|LICENSE|CODEOWNERS|AGENTS\.md|CLAUDE\.md|GEMINI\.md)'
+CHANGED="$(git diff --cached --name-only)"
+CRITICAL="$(printf '%s\n' "$CHANGED" | grep -vE "$NON_PRODUCT" || true)"
+[ -z "$CRITICAL" ] && exit 0
+SHA="$(git diff --cached | { shasum -a 256 2>/dev/null || sha256sum 2>/dev/null; } | awk '{print $1}')"
+LAST="$(tail -1 "$FAKE_AUTONOMY_EVIDENCE" 2>/dev/null || true)"
+[ -x tools/check-review-marker.sh ] && bash tools/check-review-marker.sh >/dev/null \
+  || { echo "fake-hook: check-review-marker no aceptó la evidencia" >&2; exit 1; }
+[ "$LAST" = "approved:$SHA" ] || {
+  echo "fake-hook: commit de producto sin review previa ligada al staged SHA" >&2
+  exit 1
+}
+printf 'committed:%s\n' "$SHA" >> "$FAKE_AUTONOMY_EVIDENCE"
+rm -f .agents/state/markers/reviewer_run.txt

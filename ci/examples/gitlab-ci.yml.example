@@ -1,0 +1,21 @@
+# OPCIONAL — ejemplo GitLab CI. Copia a .gitlab-ci.yml y bórrale el .example.
+#
+# ⚠️  ci/run-gates.sh es FAIL-CLOSED: instala también `semgrep` (pip) en el
+# runner, y decide EXPLÍCITAMENTE sobre la review de IA — exporta
+# AI_REVIEW_REQUIRED=0 para renunciar, o instala Claude Code + API key para
+# activarla. Sin decidir, la ausencia del binario FALLA el job (a propósito).
+# Ver ci/examples/github-actions.yml.example para el patrón completo.
+stages: [gates]
+gates:
+  stage: gates
+  image: alpine:latest
+  before_script:
+    - apk add --no-cache bash git curl
+    - curl -sSL https://github.com/gitleaks/gitleaks/releases/latest/download/gitleaks_linux_x64.tar.gz | tar -xz -C /usr/local/bin gitleaks
+  script:
+    - bash ci/run-gates.sh
+  variables:
+    GATES_SECRET_MODE: "history"
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - if: $CI_COMMIT_BRANCH

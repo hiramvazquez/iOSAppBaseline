@@ -1,0 +1,120 @@
+# ════════════════════════════════════════════════════════════════════
+# swift.yaml — anti-patrones Swift como reglas AST (nivel 2)
+# ════════════════════════════════════════════════════════════════════
+# Pocas y exactas (ley del 10%, AGENTS.md §14): cada regla de aquí caza un
+# patrón PROHIBIDO en producción según platforms/swift-estado-del-arte.md.
+# Los tests van excluidos donde el patrón es legítimo en ellos (try! en un
+# fixture no es el mismo pecado que en producción).
+#
+# NOTA sobre force-unwrap (`x!`): NO hay regla semgrep a propósito — el `!`
+# postfix es indistinguible en patrón barato de operadores legítimos y de los
+# IUO, y produciría ruido. El detector correcto para force-unwrap es el linter
+# (SwiftLint `force_unwrapping` como error) en post-edit-verify.sh — nivel 1.
+#
+# Validación: estas reglas se ejecutaron contra fixtures reales (positivo y
+# negativo) antes de commitearse — regla G15: `--validate` no valida el parseo
+# por lenguaje; solo un scan real demuestra que la regla CARGA y matchea.
+
+rules:
+  - id: swift-force-try
+    languages: [swift]
+    severity: ERROR
+    message: >
+      `try!` crashea en producción si el error ocurre. Maneja el error (do/catch,
+      throws tipado) o rediseña para que el fallo sea imposible por tipo. Si de
+      verdad es un invariante, justifícalo en un comentario en la misma línea y
+      espera que el reviewer lo cuestione. (swift-estado-del-arte.md)
+    # patterns (AND): el parser swift de semgrep matchea `try! $EXPR` también
+    # contra `try`/`try await` legítimos (verificado con fixture — habría sido
+    # un FP en cada await del proyecto). La intersección con pattern-regex
+    # exige el texto literal `try!` en el rango: el AST descarta comentarios,
+    # el regex descarta los try normales. Ambas cosas, ninguna sola.
+    patterns:
+      - pattern: try! $EXPR
+      - pattern-regex: 'try!'
+    paths:
+      exclude:
+        - "*Tests*"
+        - "*Test.swift"
+        - "**/Tests/**"
+
+  - id: swift-force-cast
+    languages: [swift]
+    severity: ERROR
+    message: >
+      `as!` crashea si el tipo no es el esperado. Usa `as?` con manejo del caso
+      nil, o rediseña para no necesitar el cast. (swift-estado-del-arte.md)
+    # MISMA intersección que `swift-force-try`, y por el MISMO motivo — que
+    # tardó semanas en aplicarse aquí. El parser swift de semgrep normaliza
+    # `as!`, `as?` y `as` al mismo nodo, así que `$X as! $T` marcaba también el
+    # `as?` SEGURO. Con el trinquete de drift en 0 eso hacía literalmente
+    # imposible escribir un adapter de URLSession correcto:
+    # `response as? HTTPURLResponse` no tiene alternativa, y el detector
+    # castigaba justo lo que su propio mensaje recomienda.
+    #
+    # El arreglo ya existía doce líneas más arriba, con un comentario
+    # describiendo el mismo defecto del parser. Se arregló un caso y no se
+    # buscó el hermano. Lo que impide que vuelva a pasar no es este comentario,
+    # es `tools/semgrep/fixtures/` + `test_semgrep_rules.sh`: el fixture BUENO
+    # contiene todas las formas seguras y cualquier regla que se pase de listas
+    # falla ahí el mismo día.
+    patterns:
+      - pattern: $X as! $T
+      - pattern-regex: 'as!'
+    paths:
+      exclude:
+        - "*Tests*"
+        - "*Test.swift"
+        - "**/Tests/**"
+
+  - id: swift-print-en-produccion
+    languages: [swift]
+    severity: WARNING
+    message: >
+      `print()` no es logging: no tiene niveles, ni categorías, ni redacción de
+      datos sensibles. Usa Logger (os.log). Ojo con AGENTS.md §6: nada de PII o
+      secretos en logs.
+    pattern: print($...ARGS)
+    paths:
+      exclude:
+        - "*Tests*"
+        - "*Test.swift"
+        - "**/Tests/**"
+        - "**/Preview*"
+
+  - id: swift-gcd-legado
+    languages: [swift]
+    severity: WARNING
+    message: >
+      GCD es el modelo pre-async/await. En Swift 6.2: @MainActor para UI (no
+      DispatchQueue.main), actor para estado compartido, @concurrent para
+      offload, Task/TaskGroup para trabajo asíncrono. Si esto es interop con
+      una API vieja, justifícalo en comentario. (swift-estado-del-arte.md)
+    pattern-either:
+      - pattern: 'DispatchQueue.main.async($...A)'
+      - pattern: 'DispatchQueue.global($...A)'
+      - pattern: 'DispatchQueue(label: $L)'
+
+  - id: swift-thread-sleep
+    languages: [swift]
+    severity: WARNING
+    message: >
+      `Thread.sleep` bloquea el hilo entero (y en MainActor, la UI). Usa
+      `try await Task.sleep(for:)`, que suspende sin bloquear y respeta la
+      cancelación.
+    pattern-either:
+      - pattern: Thread.sleep($...A)
+      - pattern: usleep($...A)
+
+  - id: swift-primitivas-de-lock-manuales
+    languages: [swift]
+    severity: WARNING
+    message: >
+      Semáforos y locks manuales para proteger estado (o "esperar" un async)
+      son el origen clásico de deadlocks y prioridad invertida. El estado
+      mutable compartido va en un `actor`; esperar es `await`. Si es interop
+      inevitable, comenta el porqué. (swift-estado-del-arte.md)
+    pattern-either:
+      - pattern: 'DispatchSemaphore($...A)'
+      - pattern: 'NSLock()'
+      - pattern: 'NSRecursiveLock()'

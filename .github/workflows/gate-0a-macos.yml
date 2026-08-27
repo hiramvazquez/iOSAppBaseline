@@ -1,0 +1,26 @@
+# Gate de cierre de la fase 0a del PRD 0005: 30 corridas CONSECUTIVAS de la
+# suite en macOS real, sin rerun. Un flaky sobrevive a una corrida; a 30
+# seguidas con corte al primer rojo, no. Se dispara A MANO (workflow_dispatch):
+# gasta minutos de macOS (10x Linux) y es un gate puntual, no un vigilante.
+name: gate-0a-macos
+on:
+  workflow_dispatch:
+    inputs:
+      runs:
+        description: "corridas consecutivas"
+        default: "30"
+jobs:
+  suite-en-bucle:
+    runs-on: macos-latest
+    timeout-minutes: 300
+    steps:
+      - uses: actions/checkout@v4
+      - name: suite x N con corte al primer rojo
+        env:
+          N: ${{ github.event.inputs.runs }}   # via env, no interpolado en el shell (inyeccion clasica de Actions)
+        run: |
+          for i in $(seq 1 "$N"); do
+            echo "━━━ corrida $i/$N ━━━"
+            bash tools/tests/run-tests.sh || { echo "::error::ROJO en la corrida $i — el gate 0a NO cierra"; exit 1; }
+          done
+          echo "✅ $N corridas consecutivas verdes: gate 0a cerrado"

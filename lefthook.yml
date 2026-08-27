@@ -1,0 +1,140 @@
+# ════════════════════════════════════════════════════════════════════
+# ANILLO 1 — enforcement git-nativo (UNIVERSAL)
+# ════════════════════════════════════════════════════════════════════
+# Dispara en TODO `git commit` / `git push`, sin importar el cliente:
+# Cursor, Claude Code, Codex, o un humano en terminal. Es la única capa
+# que cubre a todos por igual (los hooks de IA solo cubren su cliente).
+#
+# Instalación (una vez por clon):  lefthook install
+# Runner: lefthook (Go, binario único, paralelo, políglota).
+#   macOS:  brew install lefthook
+#   node :  npm i -D lefthook && npx lefthook install
+#   go   :  go install github.com/evilmartians/lefthook@latest
+#
+# Escape hatch (auditar su uso): git commit --no-verify   ← desaconsejado.
+# Por eso el Anillo 3 (CI) re-corre estos gates server-side.
+# ════════════════════════════════════════════════════════════════════
+
+pre-commit:
+  parallel: true
+  jobs:
+    # ── Secretos: el gate de mayor leverage (gitleaks sobre lo staged) ──
+    - name: secret-scan
+      run: bash tools/secret-scan.sh --staged
+      # Requiere gitleaks en PATH. Si falta, el script avisa cómo instalarlo.
+
+    # ── Drift ratchet: el conteo de deuda SOLO baja, nunca sube ──
+    - name: drift-ratchet
+      run: bash tools/drift-ratchet.sh --check
+
+    # ── Capas: el dominio no depende de UI ni de infraestructura (§3) ──
+    # Fitness function sobre el grafo de imports. Determinista, 0 falsos
+    # positivos por comentarios/strings — por eso puede bloquear.
+    - name: check-layers
+      run: bash tools/check-layers.sh
+
+    # ── El SEGUNDO eje: en KMP, commonMain no importa plataforma ─────
+    # check-layers modela el grafo por DIRECTORIO; los source sets son otro eje
+    # que ese grafo no ve. Va aquí, al lado de su hermano, porque es la misma
+    # naturaleza de check (estático, determinista, sin falsos positivos por
+    # comentarios) y porque un `import android.*` en commonMain compila hasta
+    # que alguien añade el target iOS, semanas después y en el CI de otro.
+    # Inerte y mudo en repos sin commonMain/ (estado `no-aplica`, exit 0).
+    # El exit 3 (sin semgrep + grep limpio = "no pude mirar") AVISA en local y
+    # bloquea en CI, igual que semgrep-staged doce líneas más abajo. Sin este
+    # wrapper, un adoptante KMP sin semgrep instalado no podía commitear — un
+    # bug del gate trabando el commit, que es lo que §14.3 prohíbe. Y el
+    # sobre-bloqueo repetido es la presión que empuja a `--no-verify`, que sí
+    # es un bypass total: la defensa se pierde por el camino que la protege.
+    - name: check-source-sets
+      run: |
+        bash tools/check-source-sets.sh; rc=$?
+        [ "$rc" = "3" ] && { echo "⚠️  check-source-sets no pudo mirar — commit permitido, CI lo bloqueará."; exit 0; }
+        exit $rc
+
+    # ── Semgrep sobre lo STAGED (patrones AST, nivel 2) ──────────────
+    # Invocado DIRECTO, no vía check-drift: el agregador descarta el exit code
+    # por diseño, así que un semgrep roto o con reglas inválidas era invisible
+    # en los anillos locales y solo se cazaba en CI. Modo --staged para que
+    # siga siendo pre-commit (< 2s); el scan completo va en el Anillo 3.
+    # exit 1 = hallazgo real -> bloquea · exit 3 = el detector no pudo correr
+    # -> avisa y deja pasar. Bloquear en el caso 3 crearía un deadlock: un typo
+    # en las reglas impediría hasta el commit que lo arregla (AGENTS.md §14.3).
+    # El backstop del caso 3 es CI (GATES_REQUIRE_SEMGREP=1).
+    - name: semgrep-staged
+      run: |
+        bash tools/semgrep-scan.sh --staged; rc=$?
+        [ "$rc" = "3" ] && { echo "⚠️  semgrep no pudo correr — commit permitido, CI lo bloqueará."; exit 0; }
+        exit $rc
+
+    # ── Marcadores de conflicto en lo staged ─────────────────────────
+    # git solo rechaza paths "unmerged"; un `git add` con los <<<<<<< dentro
+    # "resuelve" el index y el commit pasa. Cazado en vivo: un merge concluido
+    # así corrompió el ledger de findings. Es además el contrapeso de la
+    # exención MERGE_HEAD del review-marker (los merges van menos vigilados).
+    - name: conflict-markers
+      run: bash tools/check-conflict-markers.sh
+
+    # ── Bit +x de los scripts staged ─────────────────────────────────
+    # Los archivos que entran por fuera de git pierden permisos. Se avisó
+    # durante días y aun así un commit del harness metió SEIS mode changes
+    # 100755 => 100644. Un problema que reaparece no necesita otro aviso.
+    # `--fix`: repara y re-stagea con aviso ruidoso, en vez de bloquear. El
+    # remedio es determinista y sin juicio (`chmod +x`), así que exigirlo a
+    # mano es fricción sin valor. El modo estricto sigue vivo en CI y en
+    # validate-harness §9, donde auditar sí es el objetivo.
+    - name: exec-bits
+      run: bash tools/check-exec-bits.sh --fix
+
+    # ── Review marker: ¿este cambio fue REALMENTE revisado? ──────────
+    # Antes esto vivía SOLO en el Anillo 2 (hooks de Claude/Cursor), así que
+    # no hacía falta `--no-verify` para saltárselo: bastaba commitear desde
+    # otra terminal, o desde Codex (que no tiene hooks). Ahora está aquí, que
+    # es la única capa que ve TODOS los commits.
+    - name: verify-marker
+      # ¿Alguna ejecución de build+tests está ligada a ESTE diff? El reviewer no
+      # compila, los trinquetes no compilan y las capas no compilan: sin esto se
+      # puede commitear un árbol que nadie llegó a construir.
+      run: bash tools/check-verify-marker.sh
+    - name: review-marker
+      run: bash tools/check-review-marker.sh --staged
+
+    # ── Lint / format por-plataforma (rápido, solo staged) ──
+    # <!-- FILL: descomenta/añade el linter de tu stack. Mantenlo < 2s. -->
+    # - name: lint-ios
+    #   glob: "*.swift"
+    #   run: swiftformat --lint {staged_files}
+    # - name: lint-android
+    #   glob: "*.{kt,kts}"
+    #   run: ktlint {staged_files}
+    # - name: lint-web
+    #   glob: "*.{ts,tsx,js,jsx}"
+    #   run: npx eslint {staged_files}
+
+pre-push:
+  parallel: true
+  jobs:
+    # ── Checks un poco más pesados, pero que sigan siendo razonables ──
+    # <!-- FILL: tests rápidos / typecheck. Los tests completos van en CI. -->
+    # - name: typecheck-web
+    #   run: npx tsc --noEmit
+    - name: secret-scan-range
+      run: bash tools/secret-scan.sh --range
+    # ── LA SUITE DEL HARNESS ES UN GATE DE PUBLICACIÓN, NO UN INFORME ──
+    # El workflow de CI la corre en `push: [main]`, o sea DESPUÉS de publicar:
+    # para cuando suena la alarma, el delta ya está en main y ya es
+    # sincronizable por cualquier adoptante. Eso no es un gate, es un aviso —
+    # la misma "defensa anunciada que no existe" que este harness persigue en
+    # todo lo demás.
+    # Pasó de verdad: se publicó un main con un test en rojo, y el test rojo era
+    # justamente el que avisaba de que el arreglo del brick de hooks había
+    # quedado inerte en Claude Code. El adoptante lo descubrió clonando.
+    # Aquí corre ANTES del push, en la máquina de quien publica, y con lo que
+    # se va a publicar. Si tu suite tarda demasiado para un pre-push, sube el
+    # umbral en CI — no borres esto.
+    - name: harness-suite
+      run: bash tools/tests/run-tests.sh
+
+# NOTA: los builds completos, la matriz de tests y los scans de historial
+# completo van en el Anillo 3 (ci/run-gates.sh), NO aquí. Regla de oro:
+# pre-commit = formato + lint staged + validación ligera; CI = lo pesado.

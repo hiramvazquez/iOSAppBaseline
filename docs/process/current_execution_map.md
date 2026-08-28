@@ -62,10 +62,16 @@
    Implica publicar `CoreNetworking 0.1.4` y re-fijar `Package.resolved`; **sin payloads
    `String`** o se cae el argumento por construcción de S1. Ojo: `.transport(_)` mata
    `CaseIterable`, y con él los dos tests que iteran `allCases`; (b) sustituir `load()` por
-   `enum Action` + `handle(_:)` en el ViewModel, aprovechando para meter la idempotencia de la
-   primera carga que hoy **no existe** (`.task` re-dispara `performLoad` incondicionalmente);
+   `enum Action` + `handle(_:)` en el ViewModel — ✅ **HECHO el 2026-08-28**, con la idempotencia
+   de la primera carga que faltaba (`f-31902e86` cerrado), verificado con mutantes —incluido el que
+   reproduce la regresión de recuperabilidad en `.empty` que la review cazó—;
    (c) sacar los DTOs y su mapeo del adapter a su propio archivo. Cada uno deja los tests verdes
    o explica cuál cambió y por qué, y se comprueba con mutantes.
+
+   > Nota de convención pendiente: `.claude/rules/10-ios-ui.md` dice que la View «emite intención
+   > (`vm.send(...)`)» y el refactor (b) usó `handle(_:)`. Unificar el nombre **antes** de que
+   > haya una segunda pantalla copiando el patrón — hoy es un renombrado, con dos pantallas es
+   > una migración.
 3. **El `1.0.0` de los SPM sigue pendiente, y a proposito.** Publicarlos se adelanto a la
    vertical porque CI no puede resolver una ruta local (`Invalid local package`), pero se
    publicaron en `0.x`: estrenar antes de congelar la API sigue siendo la decision: un `1.0.0`

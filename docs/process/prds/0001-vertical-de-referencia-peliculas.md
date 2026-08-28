@@ -738,18 +738,27 @@ el closure sin el store mergea con el bug dentro.
   carga completa ni pierde el contenido. La **Trampa C** (el ViewModel memoizado en
   `MoviesScreenStore`, OQ-13) es **necesaria pero NO suficiente**, y decir que basta era el error:
 
-  > ⚠️ **Este escenario NO está protegido hoy** (4ª pasada, H-8; ledger `f-31902e86`).
-  > `PopularMoviesView` hace `.task { await viewModel.load().value }`, y `load()` llama a
-  > `performLoad` **incondicionalmente**. El store salva la *instancia*, no el *escenario*: al
-  > re-dispararse `.task`, `performLoad` pone `.loading(.fullScreen)` sobre contenido ya
-  > cargado y lanza otra petición. Y como `popular` de TMDB **se reordena entre llamadas**
-  > (no-garantía de §6.3), la lista vuelve barajada y la posición salta — que es justo lo que
-  > el golden 6 pide conservar.
+  > ✅ **CUBIERTO desde el 2026-08-28** (refactor (b); ledger `f-31902e86` cerrado).
   >
-  > **Falta la idempotencia de la primera carga**, y su sitio natural es el ViewModel (un
-  > guard sobre la fase, testeable en la misma capa donde vive). Entra con el refactor a
-  > `enum Action` + `handle(_:)`, con su fila en §9b. Hasta entonces el golden 6 está
-  > **declarado como no cubierto**, no dado por bueno.
+  > Hicieron falta **las dos mitades**, y durante un tiempo el PRD dio por suficiente solo la
+  > primera: `MoviesScreenStore` salva la *instancia* del ViewModel (Trampa C), pero no el
+  > *escenario*. `PopularMoviesView` hacía `.task { await viewModel.load().value }` y `load()`
+  > entraba a `performLoad` **sin condición**, así que cada re-montaje repintaba
+  > `.loading(.fullScreen)` sobre contenido ya cargado y emitía otra petición — y como
+  > `popular` se reordena entre llamadas (no-garantía de §6.3), la lista volvía barajada y la
+  > posición saltaba.
+  >
+  > La segunda mitad es `PopularMoviesViewModel.handle(.alAparecer)`, con
+  > un `switch` exhaustivo sobre la fase: **`.idle` y `.empty` recargan**; `.loading`,
+  > `.content` y `.error` no. Mira la **fase** y no un booleano `yaCargue` a propósito —la fase
+  > es el estado de esta pantalla, y un flag paralelo sería una segunda fuente de verdad que se
+  > puede desincronizar de ella—, y `.empty` está dentro porque `DefaultEmptyView` **no ofrece
+  > reintentar**: un guard que solo dejara pasar `.idle` dejaría al usuario atrapado en «no hay
+  > películas» sin salida. La primera versión del refactor cometió justo ese error y lo cazó la
+  > review: proteger la idempotencia sin esa rama habría sido cambiar un bug por otro
+  > (fila T-VM-14). `.reintentar` es un caso distinto del
+  > enum porque su contrato es el opuesto —siempre recarga—, y con un solo `load()` esa
+  > distinción no era expresable: por eso el bug existía.
 - **Rotación / Dynamic Type XXL** → el listado no rompe (slice de cierre).
 
 ## 8. Anti-features (qué NO entra)
@@ -945,6 +954,9 @@ el closure sin el store mergea con el bug dentro.
 | T-VM-2 | `onAppear` OK con 0 resultados | `phase == .empty` (**no** `.content` con lista vacía) |
 | T-VM-3 | `onAppear` con error | `phase == .error(...)`; el `retry` del `ScreenError` vuelve a llamar al puerto (2ª entrada en el spy) |
 | T-VM-4 | el fake lanza `MoviesError.cancelled` con la Task **viva** | `phase` **NO es `.loading`** (ni se queda colgada ni pinta error espurio). Aserción sobre el estado que de verdad puede romperse: la anterior (`== .error` con retry) es cierta para *cualquier* error que escape, con o sin la regla de OQ-14, porque `performLoad` siempre pasa un `retry` no-nil (`BaseViewModel.swift:204-213`) |
+| T-VM-12 | `alAparecer` dos veces ⇒ **una sola** invocación al puerto, y ni la fase ni las películas cambian | el conteo de invocaciones SÍ es el contrato aquí: lo que se verifica es que NO se llame de más |
+| T-VM-14 | `alAparecer` sobre `.empty` ⇒ **sí** vuelve a pedir | rama de recuperación: `DefaultEmptyView` no ofrece reintentar, así que un guard que solo dejara pasar `.idle` dejaría al usuario atrapado. La primera versión del refactor introdujo justo esa regresión |
+| T-VM-13 | `reintentar` tras un error ⇒ vuelve a pedir | contrato **opuesto** al de `alAparecer`. *(La primera versión de esta fila decía «sin él, el botón de la pantalla de error no haría nada» — falso, y contradecía a T-VM-3: ese botón usa el `retry` de `ScreenError`, que asigna `performLoad`. `.reintentar` no tiene call site en `Sources/` todavía; es el punto de entrada para una recarga con UI propia.)* |
 | T-VM-11 | dos invocaciones de `store.popular()` devuelven la MISMA instancia. **No dice «simulando push+pop»**: el slice 0 no tiene `Coordinator`, ni `CoordinatorView`, ni `MoviesRoute`, ni `DependencyModule` — `BaselineApp` monta un `NavigationStack` pelado. **Riesgo residual declarado:** cuando llegue el Coordinator, construir el ViewModel dentro del closure de rutas deja todos los tests en verde y reintroduce el bug de identidad; ese cableado no lo cubre nada todavía | el ViewModel **no** se reemplaza y las películas acumuladas siguen ahí (Trampa C). Muere si la factoría construye una instancia nueva en vez de devolver la memoizada |
 | T-VM-5 | scroll al final con `nextPage != nil` | el puerto se llama **exactamente una vez** con `nextPage` |
 | T-VM-6 | scroll al final llamado 5 veces seguidas | el puerto se llama **una** vez (Trampa B) |

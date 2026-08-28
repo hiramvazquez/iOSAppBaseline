@@ -21,21 +21,21 @@ struct PopularMoviesView: View {
             .listStyle(.plain)
         }
         .task {
-            // ⚠️ ESTO NO ES IDEMPOTENTE, y decir lo contrario era el problema.
+            // La vista emite INTENCIÓN, no órdenes: no sabe si esto carga o no.
+            // Esa decisión es del ViewModel, y `.alAparecer` es idempotente —
+            // `.task` se re-dispara al re-montarse la vista (al volver del
+            // detalle, por ejemplo) y la carga inicial ocurre una sola vez.
             //
-            // `load()` llama a `performLoad` **incondicionalmente**: cancela la
-            // carga anterior, sí, pero cada re-disparo de `.task` vuelve a poner
-            // `.loading(.fullScreen)` sobre contenido ya cargado y emite otra
-            // petición. Y como `popular` de TMDB se reordena entre llamadas (la
-            // no-garantía del puerto), la lista vuelve barajada y la posición
-            // salta — que es justo lo que el escenario golden 6 pide conservar
-            // al volver del detalle.
+            // Antes aquí se llamaba a `load()`, que entraba a `performLoad` sin
+            // condición: cada vuelta repintaba `.loading(.fullScreen)` sobre
+            // contenido ya cargado y emitía otra petición. Como `popular` de
+            // TMDB se reordena entre llamadas (la no-garantía del puerto), la
+            // lista volvía barajada y la posición saltaba — justo lo contrario
+            // de lo que el escenario golden 6 pide conservar.
             //
-            // `MoviesScreenStore` salva la INSTANCIA del ViewModel, no el
-            // escenario. Falta el guard de «ya cargué», y su sitio es el
-            // ViewModel: entra con el refactor a `enum Action` + `handle(_:)`.
-            // Ledger `f-31902e86` (abierto, high).
-            await viewModel.load().value
+            // `MoviesScreenStore` salva la INSTANCIA del ViewModel; el guard de
+            // `handle(.alAparecer)` salva el escenario. Hacían falta los dos.
+            await viewModel.handle(.alAparecer)
         }
     }
 }

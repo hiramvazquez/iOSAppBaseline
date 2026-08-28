@@ -150,7 +150,19 @@ fi
 # import. Lo que este anclaje NO puede ver —bloques y strings multilínea— es
 # justo lo que el motor primario sí ve.
 _grep_en() {  # _grep_en <dir-o-archivo>...
-  grep -rnE "^[[:space:]]*import[[:space:]]+(${PROHIBIDOS})" "$@" \
+  # `-H` NO es redundante con `-r`, y la diferencia solo se ve en Linux: BSD
+  # grep (macOS) imprime el nombre del archivo siempre que se recorre con -r,
+  # pero GNU grep lo omite cuando se le pasa UN SOLO archivo explicito. El
+  # fallback por archivo saltado hace exactamente eso —`_grep_en "$_f"`—, asi
+  # que en Linux la salida era `2:import android.net.Uri`: sin decir en QUE
+  # archivo. Dos consecuencias, las dos reales:
+  #   · el usuario recibe una violacion que no puede localizar;
+  #   · el dedupe por `archivo:linea` no casa contra el hit de semgrep (las
+  #     claves son `2` y `Roto.kt`), asi que la MISMA violacion se contaba dos
+  #     veces y `violaciones=N` mentia.
+  # Lo destapo el CI de Linux; en macOS era invisible. Fijado por
+  # test_source_sets_fallback.sh::test_el_fallback_nombra_el_archivo_siempre.
+  grep -rHnE "^[[:space:]]*import[[:space:]]+(${PROHIBIDOS})" "$@" \
        --include='*.kt' --include='*.kts' 2>/dev/null || true
 }
 

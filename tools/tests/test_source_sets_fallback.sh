@@ -111,3 +111,97 @@ _case_partial_parsing_no_cuenta_dos_veces() {
 }
 test_una_violacion_en_un_kt_parseado_a_medias_se_cuenta_una_vez() {
   _ssf_repo _case_partial_parsing_no_cuenta_dos_veces; }
+
+# ── El fallback SIEMPRE dice en que archivo ─────────────────────────
+# Este test existe por un bug que solo se veia en Linux y que llego a CI: BSD
+# grep (macOS) imprime el nombre del archivo cuando se recorre con -r, pero GNU
+# grep lo OMITE si se le pasa un solo archivo explicito — que es justo lo que
+# hace el fallback por archivo saltado. En Linux la violacion salia como
+# `2:import android.net.Uri`, sin decir donde, y ademas el dedupe por
+# `archivo:linea` no podia casar contra el hit de semgrep, asi que la misma
+# violacion se contaba dos veces.
+#
+# Se prueba sobre UN solo archivo a proposito: con dos o mas, ambos greps
+# imprimen el nombre y el bug es invisible.
+#
+# ⚠️ HONESTIDAD SOBRE SU ALCANCE: este test **no puede fallar en macOS**. Se
+# comprobo quitando el `-H`: BSD grep sigue imprimiendo el nombre y el test
+# sigue verde. Solo muerde en Linux, o sea en CI. Por eso existe ademas el
+# guard estructural de abajo, que si muerde en cualquier plataforma. Un test
+# que en tu maquina no puede ponerse rojo no es inutil —cubre el CI— pero
+# decir que te protege en local seria mentir.
+_case_el_fallback_nombra_el_archivo_siempre() {
+  _ssf_common 'package dominio' 'class Repo'
+  printf '%s\n' 'package dominio' 'import android.net.Uri' \
+    > shared/src/commonMain/kotlin/Roto.kt
+
+  # Sin semgrep: el detector cae al fallback textual entero.
+  stub bin/semgrep '#!/bin/sh\nexit 127\n'
+  local out
+  out="$(PATH="$PWD/bin:$PATH" bash tools/check-source-sets.sh 2>&1)"
+
+  printf '%s' "$out" | grep -qE 'Roto\.kt:[0-9]+' || {
+    echo "    el fallback no dijo en QUE archivo esta la violacion."
+    echo "    (GNU grep omite el nombre con un solo archivo si falta -H;"
+    echo "     el usuario recibe una violacion que no puede localizar)"
+    printf '%s\n' "$out" | sed 's/^/      /' | head -6
+    return 1; }
+}
+test_el_fallback_nombra_el_archivo_siempre() {
+  _ssf_repo _case_el_fallback_nombra_el_archivo_siempre; }
+
+# El guard que SI muerde en cualquier plataforma. El test de arriba comprueba
+# el comportamiento —lo correcto— pero es ciego en macOS; este fija la causa:
+# que la invocacion lleve `-H`. Es un test de implementacion, y se acepta a
+# sabiendas porque la alternativa es que el unico aviso llegue desde un runner
+# de Linux, veinte minutos despues del push. Mismo patron que
+# `test_sync_paths_cabe_en_una_linea_como_asume_su_parser`.
+test_el_grep_del_fallback_pide_el_nombre_del_archivo() {
+  local linea palabra tiene_H="no"
+  linea="$(grep -nE '^[[:space:]]*grep .*PROHIBIDOS' "$PROJECT_ROOT/tools/check-source-sets.sh" | head -1)"
+  [ -n "$linea" ] || { echo "    no encontre la invocacion de grep en _grep_en"; return 1; }
+
+  # Se mira PALABRA a palabra, y solo las que son flags. Las dos versiones
+  # anteriores de este guard fallaron por buscar la letra H como substring:
+  #   · en la linea entera, la encontraba dentro del patron entrecomillado
+  #     (la H de PROHIBIDOS) y el guard dejaba de morder;
+  #   · recortando "todo lo anterior a la primera comilla doble", el mismo
+  #     fallo volvia si alguien escribia el patron con comillas simples.
+  # Un flag es una palabra que empieza por `-`, y ninguna palabra del patron
+  # empieza por `-`, asi que el contenido entrecomillado ya no puede colarse.
+  # (Lo cazo el reviewer, las dos veces.)
+  # Y dentro de un flag, solo cuenta si el cluster son letras de flags QUE NO
+  # LLEVAN ARGUMENTO. `-eHead` es `-e` con el valor "Head" pegado —sintaxis
+  # valida y comun— y contiene una H que no es el flag `-H`: con un substring
+  # match a secas, anadir un segundo patron con `-e` habria desactivado este
+  # guard en silencio. Lo cazo el reviewer, la tercera vez sobre esta misma
+  # funcion. La allowlist se declara en vez de escribir un parser de getopt:
+  # esto es un test de regresion sobre una invocacion conocida, no un CLI.
+  # La lista cubre los flags de grep SIN argumento del synopsis de BSD grep y
+  # sus equivalentes GNU. No pretende ser exhaustiva para siempre —si falta uno
+  # el guard falla del lado seguro: bloquea de mas, nunca deja pasar un -H
+  # ausente—. Si anades uno, comprueba antes que no consuma valor:
+  # los que si lo consumen —A B C D d e f m— tienen que quedarse FUERA, o un
+  # `-eHead` volveria a colar una H que no es el flag -H.
+  # shellcheck disable=SC2086  # el word splitting es justo lo que se busca
+  for palabra in $linea; do
+    case "$palabra" in
+      --with-filename) tiene_H="si"; break ;;
+      --*) ;;
+      -*H*)
+        case "${palabra#-}" in
+          *[!rRHnEFGPVSOpybJMXZviwxoclLqszaIuU]*) ;;   # lleva algo que no es flag simple
+          *) tiene_H="si"; break ;;
+        esac ;;
+    esac
+  done
+
+  [ "$tiene_H" = "si" ] || {
+    echo "    _grep_en invoca grep SIN -H:"
+    echo "      $linea"
+    echo "    GNU grep omite el nombre del archivo cuando se le pasa un solo"
+    echo "    archivo explicito, asi que en Linux la violacion sale sin decir"
+    echo "    donde esta y el dedupe por archivo:linea deja de casar. En macOS"
+    echo "    no se nota, y por eso este guard existe."
+    return 1; }
+}

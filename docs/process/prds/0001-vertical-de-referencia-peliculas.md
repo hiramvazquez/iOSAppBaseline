@@ -1,17 +1,28 @@
 # PRD 0001 — Vertical de referencia: películas (listado + detalle, TMDB)
 
-> **Tipo:** Forward · **Status:** Draft — **design-review 🔴 RED del 2026-08-27**
+> **Tipo:** Forward · **Status:** Draft — **los 4 bloqueantes del design-review, cerrados**
 >
-> El gate del CÓMO (§12) encontró 4 bloqueantes y 29 hallazgos, todos verificados contra el
-> código real de los paquetes. **No empieces la fase 1 con este documento como está.** Dictamen
-> completo: [`docs/process/reviews/2026-08-27-design-review-prd-0001.md`](../reviews/2026-08-27-design-review-prd-0001.md).
+> El gate del CÓMO (§12) dio 🔴 RED el 2026-08-27 con 4 bloqueantes y 29 hallazgos, todos
+> verificados contra el código real de los paquetes. Dictamen completo:
+> [`docs/process/reviews/2026-08-27-design-review-prd-0001.md`](../reviews/2026-08-27-design-review-prd-0001.md).
 >
-> Los cuatro bloqueantes se cierran **editando este PRD**, sin escribir Swift: la «Trampa A» está
-> mal descrita y su test pasaría con cualquier implementación (B1); la garantía C5 del puerto es
-> falsa contra la API real (B2); falta la trampa de la identidad del ViewModel a través de la
-> navegación, que rompe el golden 6 (B3); y `messageKey: String` acabaría pintando la clave cruda
-> en pantalla (B4). Tres Open Questions —OQ-3(b), OQ-10 y OQ-11— se contestan leyendo el código y
-> no debían haberse delegado al owner.
+> **Los cuatro están cerrados (2026-08-28), editando este documento y sin escribir Swift:**
+> - **B1** — la «Trampa A» describía un escenario que `performLoad` ya cubre (hace
+>   `guard !Task.isCancelled` antes de `setError`), y su test habría pasado con y sin la
+>   mitigación. §6.5 reescrita con el caso real —cancelación de transporte con la Task viva— y
+>   T-VM-4 con ella.
+> - **B2** — la garantía C5 («dos llamadas devuelven lo mismo») es falsa contra TMDB, que reordena
+>   `popular`. Sustituida por «sin efectos secundarios observables», más una **no-garantía**
+>   explícita de que el contenido de una página no es estable.
+> - **B3** — añadida la **Trampa C**: `CoordinatorView` reevalúa el closure de rutas, así que un
+>   ViewModel construido ahí se recrea vacío en cada navegación y rompe el golden 6. El PRD decide
+>   dónde vive la identidad (factoría memoizada, OQ-13) en vez de delegarlo.
+> - **B4** — fuera `messageKey: String`: caería en el init verbatim de `ScreenError` y pintaría la
+>   clave cruda. Sustituido por un `switch` exhaustivo con literales `LocalizedStringResource`.
+>
+> **Resueltas también** OQ-1 (Bearer, con la doc de TMDB), OQ-2 (decoder), OQ-3(b), OQ-10 y OQ-11.
+> **Sigue en `Draft`**: quedan Open Questions de owner (OQ-4 a OQ-9, OQ-12) y el `Approved` es
+> suyo, no del design-review.
 > **Autor:** prd-writer (sub-agente) · **Fecha:** 2026-08-27 · **Tracking:** —
 > **Design-review:** pendiente
 >
@@ -34,7 +45,7 @@ en verde y una vacía:
   warnings como errores), preset `full`, Anillo 3 cableado (`.github/workflows/gates.yml`),
   `verify.conf` atado a `xcodegen generate && xcodebuild test`.
 - **Los dos paquetes propios entran por URL con versión fijada** — `AppFoundation` 0.1.1
-  (arquitectura, navegación, DI, estados de pantalla) y `CoreNetworking` 0.1.0 (red, pinning,
+  (arquitectura, navegación, DI, estados de pantalla) y `CoreNetworking` 0.1.3 (lo que fija `Package.resolved`) (red, pinning,
   reintentos, errores tipados). Hay un smoke test que los importa y los **usa**.
 - **La clave de TMDB ya tiene su tubería**: `Config/Secrets.xcconfig` (gitignored, copiado de
   `Secrets.example.xcconfig`) → build settings `TMDB_READ_ACCESS_TOKEN` / `TMDB_HOST` →
@@ -111,7 +122,7 @@ Sources/
     MovieDetail.swift                  ← entidad del detalle (fase 7)
     PageNumber.swift                   ← tipo-valor con rango cerrado 1...500 (invariante por tipo)
     MoviePage.swift                    ← página de resultados + nextPage: PageNumber?
-    MoviesError.swift                  ← error de dominio tipado + messageKey (clave i18n, NO texto)
+    MoviesError.swift                  ← error de dominio tipado, CaseIterable. SIN messageKey (§6.4)
     PopularMoviesRepository.swift      ← PUERTO (capability: cargar una página de populares)
     MovieDetailRepository.swift        ← PUERTO (capability: cargar el detalle de una película)
     MoviesPaginationLogic.swift        ← lógica pura de acumulación/paginación (fase 2)
@@ -146,7 +157,7 @@ Tests/UnitTests/
   Domain/
     PageNumberTests.swift              ← property-based (rango cerrado)
     MoviePageTests.swift               ← invariantes de nextPage
-    MoviesErrorTests.swift             ← messageKey exhaustivo + claves existentes en el catálogo
+    MoviesErrorTests.swift             ← copy distinto por caso + traducción real en es (T-D-4/5)
     MoviesPaginationLogicTests.swift   ← el grueso del TDD puro
   Support/
     MoviesRepositoryConformance.swift  ← LA suite de conformidad (una, parametrizada)
@@ -256,7 +267,8 @@ Reglas mecánicas que lo fijan (ya vivas en `tools/layers.conf`, no hay que escr
 > `AppErrorConvertible` dentro de `Domain/` — ese protocolo vive en `AppFoundation`. La conformidad
 > va en `Sources/UI/Movies/MoviesError+ScreenError.swift`, que es donde el error de negocio se
 > convierte en copy de pantalla. Esto no es un rodeo: es exactamente la separación que la regla
-> existe para forzar. El dominio publica **claves** (`messageKey`), la presentación publica
+> existe para forzar. El dominio publica **casos de error tipados** (no claves de texto: ver §6.4,
+> una clave `String` acabaría impresa en pantalla), la presentación publica
 > **texto localizado**.
 
 ### 6.2 Entidades y tipos-valor (Domain — puro)
@@ -292,10 +304,19 @@ implementaciones):
 | C2 | `nextPage` es `p + 1` mientras haya más páginas, y `nil` en la última. Nunca salta. |
 | C3 | El orden de `movies` es el que dio la fuente. El puerto no reordena. |
 | C4 | Pedir una página válida **más allá** de la última devuelve `MoviePage` vacía con `nextPage == nil`. **No lanza.** (Sujeto a **OQ-8**.) |
-| C5 | Dos llamadas seguidas con la misma página devuelven lo mismo (idempotencia observable). |
+| C5 | `popularMovies(page:)` **no tiene efectos secundarios observables**: llamarlo N veces no altera el estado del repositorio ni el resultado de pedir otra página. |
 | C6 | Un `MovieID` inexistente en `movieDetail` lanza `MoviesError.notFound`. Nunca devuelve un `MovieDetail` vacío ni `nil`. |
 | C7 | Toda salida de error es un `MoviesError`; jamás escapa un `APIError`, un `URLError` ni un `DecodingError`. |
 | C8 | Ningún valor lanzado ni devuelto contiene la clave de API. |
+
+> ⚠️ **No-garantía explícita:** el contenido de una página **no es estable entre llamadas**.
+> `popular` de TMDB se reordena según cambian los votos, así que pedir la página 1 dos veces puede
+> devolver películas distintas. La versión anterior de C5 prometía justo lo contrario
+> («dos llamadas seguidas devuelven lo mismo»), y su test habría pasado **solo porque
+> `MockURLProtocol` reproduce la respuesta registrada**: habría verificado el mock, no el contrato.
+> Un puerto de referencia que promete algo que su única implementación real no cumple es el peor
+> artefacto que puede copiar un adoptante. Por esta inestabilidad existe el invariante de unicidad
+> de la fase 2 (T-P-6): las páginas se deduplican por `MovieID` al acumularlas.
 
 > **Cómo se añade caché mañana sin tocar ViewModels** (el diseño hay que dejarlo *posible*, no
 > construirlo — ver §8): un `CachedPopularMoviesRepository` que envuelve a otro
@@ -305,10 +326,30 @@ implementaciones):
 ### 6.4 Errores de dominio
 
 ```
-enum MoviesError: Error, Equatable, Sendable
+enum MoviesError: Error, Equatable, Sendable, CaseIterable   // CaseIterable: T-D-4 itera allCases
+                                                             // en vez de una lista escrita a mano
     offline · unauthorized · notFound · rateLimited · server · malformedResponse · cancelled · unknown
-    var messageKey: String        // "movies.error.offline", … — CLAVE, jamás texto natural (§3)
+    // SIN `messageKey`. Ver la nota de abajo: una clave de runtime acaba impresa en pantalla.
 ```
+
+> ⚠️ **Por qué NO hay `messageKey: String`.** `ScreenError` tiene dos inits: uno con
+> `LocalizedStringResource`, que localiza, y un `@_disfavoredOverload init(title: String, …)` que
+> **guarda el valor verbatim** (`ViewPhase.swift:83-108`). Un `messageKey` es un `String` de
+> runtime, así que caería **siempre** en el segundo: la pantalla mostraría `movies.error.offline`
+> tal cual — que es exactamente el síntoma que el golden 7 dice cazar. Y hay un segundo problema:
+> las claves construidas en runtime **no las extrae** el String Catalog, así que el test de
+> «toda clave existe en ES y EN» habría verificado un catálogo que nadie llenó automáticamente.
+>
+> **En su lugar:** `Sources/UI/Movies/MoviesError+ScreenError.swift` es un `switch` **exhaustivo
+> sin `default:`** que devuelve `ScreenError(title:message:)` con literales
+> `LocalizedStringResource`. Se gana todo a la vez: el compilador (nivel 0) obliga a cubrir cada
+> caso nuevo del enum, los literales los extrae el catálogo solos, y se usa el init que sí
+> localiza. T-D-4/T-D-5 se convierten en «el switch es exhaustivo» (lo fija el compilador, no un
+> test) más un test de que dos casos no comparten copy.
+>
+> Esto **contradice `domain/SKILL.md` §Errores**, que prescribe `userMessageKey`. Es un
+> `<!-- FILL -->` heredado del template que este módulo debe corregir en vez de propagar: la
+> corrección de la skill va en la fase 9, con su propio diff.
 
 - `unauthorized` existe separado a propósito: es el síntoma de una clave ausente o inválida, y su
   copy **no menciona la clave** (§6 de AGENTS.md).
@@ -316,21 +357,74 @@ enum MoviesError: Error, Equatable, Sendable
   roto es un error, no un resultado vacío (fail-silent nunca).
 - `cancelled` tiene una regla propia, abajo.
 
-### 6.5 Las dos trampas del contrato (leerlas antes de escribir el ViewModel)
+### 6.5 Las trampas del contrato (leerlas antes de escribir el ViewModel)
 
-**Trampa A — la cancelación no puede llegar a `performLoad` como error de dominio.**
-`BaseViewModel.performLoad` solo trata como cancelación lo que sea `CancellationError`; **cualquier
-otro error se convierte en pantalla de error**. Si el adapter mapea `APIError.cancelled` a
-`MoviesError.cancelled` y el ViewModel lo deja escapar, una carga superseded (dos `onAppear`
-seguidos, o un retry sobre una carga en vuelo) pintaría un error que el usuario no provocó.
-**Regla del módulo:** el cierre de trabajo del ViewModel convierte `MoviesError.cancelled` en
-`throw CancellationError()` antes de que escape a `performLoad`. Tiene test propio (T-VM-4).
+**Trampa A — una cancelación con la Task VIVA sí pinta pantalla de error.**
+`BaseViewModel.performLoad` no solo captura `CancellationError`: su rama genérica hace
+`guard !Task.isCancelled, let self else { return }` **antes** de `setError`
+(`BaseViewModel.swift:203`). Eso significa que el escenario obvio —dos `onAppear` seguidos, el
+primero superseded— **ya está cubierto por el paquete**: esa tarea está cancelada, así que aunque
+escape un `MoviesError.cancelled` no se pinta nada.
+
+La trampa real es la otra mitad: un `MoviesError.cancelled` que llega con la Task **viva**. Ocurre
+cuando la cancelación no la originó la Task sino el transporte — una `URLSession` invalidada, o un
+`URLError.cancelled` que `APIService` mapea a `APIError.cancelled`. Ahí `Task.isCancelled` es
+`false`, el guard no protege, y el usuario ve una pantalla de error por algo que no provocó.
+
+**Regla del módulo (OQ-14):** el **adapter** decide. Si `Task.isCancelled` es `false`, la
+cancelación es de transporte y se mapea a un error recuperable con retry; `MoviesError.cancelled`
+queda solo para la cancelación propia, y esa sí la convierte en `throw CancellationError()` el
+cierre de `performLoad` —**solo el de `performLoad`**: en `performActivity` dejaría el indicador
+encendido para siempre—.
+
+> **Por qué `MoviesError` tiene un caso `.cancelled` para empezar** —que es la decisión de diseño
+> de verdad y faltaba escrita—: el puerto usa `throws(MoviesError)`. Con typed throws el adapter
+> **no puede** relanzar un `CancellationError`, porque no es un `MoviesError`; está obligado a
+> modelarla dentro del error de dominio. La conversión de vuelta en el ViewModel es el precio de
+> esa decisión, no un capricho.
+
+> ⚠️ **La versión anterior de esta trampa describía el escenario cubierto**, y su test (T-VM-4)
+> habría pasado con y sin la mitigación — el anti-patrón nº1 de `tdd-workflow.md`, en el módulo
+> que existe para enseñar a testear. Lo cazó el design-review. T-VM-4 está reescrito abajo para
+> que muera si se quita la conversión.
 
 **Trampa B — `performActivity` cancela la actividad en vuelo.**
 Un scroll rápido puede disparar dos veces la carga de la página siguiente; la segunda cancela la
 primera y el listado se queda sin crecer y **sin error visible**. **Regla del módulo:** el guard de
 re-entrada vive en la **lógica pura** (fase 2), no en el ViewModel: si ya hay una página en vuelo,
 la petición se ignora — no se lanza una segunda. Tiene test propio (T-VM-6).
+
+**Trampa C — el ViewModel se recrea vacío en cada navegación si nace dentro del closure de rutas.**
+`CoordinatorView.body` lee `Bindable(coordinator).mainStack.path` y `coordinator.modal`, y llama
+`content(route)` **en cada evaluación** (`CoordinatorView.swift:55-87`). El ejemplo del README de
+`AppFoundation` —el que un agente copiará— construye el ViewModel dentro de ese closure. Resultado:
+cada `push`/`pop` fabrica un `PopularMoviesViewModel` nuevo, con `phase == .idle` y `movies == []`,
+y `onAppear` **no vuelve a dispararse** porque la vista ya apareció. El listado queda en blanco al
+volver del detalle, sin error y sin carga: rompe de frente el escenario **golden 6** («al volver
+atrás el listado conserva su contenido y su posición»).
+
+**Regla del módulo (OQ-13):** la identidad vive en un `MoviesScreenStore` que retiene el
+composition root, y el closure pide la instancia:
+
+```swift
+@MainActor final class MoviesScreenStore {          // lo retiene el composition root
+    private var popularVM: PopularMoviesViewModel?
+    func popular() -> PopularMoviesViewModel {      // memoizada: misma instancia siempre
+        if let popularVM { return popularVM }
+        let vm = PopularMoviesViewModel(...)
+        popularVM = vm
+        return vm
+    }
+}
+// en el closure de rutas:  PopularMoviesView(viewModel: store.popular())
+```
+
+Se eligió esto y no un `@State` en una vista-pantalla envolvente por una razón de verificación, no
+de estilo: `@State` solo tiene identidad cuando SwiftUI **instala** la vista, y §8 prohíbe UI
+tests — así que un test unitario no podría distinguir la implementación correcta de la rota. Con la
+factoría, **T-VM-11** es un test corriente: dos invocaciones devuelven la misma instancia (`===`) y
+conservan las películas. Entra en la **fase 5** junto al closure, no en la 8: una fase que entrega
+el closure sin el store mergea con el bug dentro.
 
 ### 6.6 Contrato de transporte (Data)
 
@@ -388,7 +482,9 @@ la petición se ignora — no se lanza una segunda. Tiene test propio (T-VM-6).
   error llega mapeado.
 - **Sin red** → `.offline` con botón de reintentar que vuelve a llamar al puerto.
 - **Doble `onAppear`** (vuelta desde el detalle, re-montaje de la vista) → no dispara una segunda
-  carga completa ni pierde el contenido; ver Trampa A.
+  carga completa ni pierde el contenido. Ojo: la razón de que el contenido sobreviva es la
+  **Trampa C** (el ViewModel lo memoiza `MoviesScreenStore`, OQ-13), no la Trampa A —
+  `performLoad` ya protege el caso superseded por su cuenta.
 - **Rotación / Dynamic Type XXL** → el listado no rompe (fase 9).
 
 ## 8. Anti-features (qué NO entra)
@@ -434,6 +530,25 @@ la petición se ignora — no se lanza una segunda. Tiene test propio (T-VM-6).
    autenticación **y la clave no aparece** en la UI, ni en los logs de la app, ni en el mensaje del
    error, ni en la salida de los tests.
 
+> ### ⚠️ La pregunta que hay que hacerle a cada fila de esta tabla
+>
+> Tres rondas de design-review encontraron **el mismo defecto tres veces**, y siempre disfrazado
+> de otra cosa: *el test se coloca en una capa donde el mecanismo que dice proteger no existe.*
+>
+> - **B1** puso el test en el ViewModel cuando la protección vivía en `BaseViewModel` (el paquete).
+> - **OQ-13** lo puso en un `@State` cuando el proyecto no tiene UI tests que puedan instalarlo.
+> - **OQ-14** lo puso en el ViewModel con un **fake del puerto**, cuando la regla vive en el
+>   **adapter** — y un fake no contiene la lógica del adapter, así que el test decidía él mismo
+>   qué lanzar.
+>
+> Los tres pasaban en verde con la implementación correcta **y con la rota**. Antes de dar por
+> buena una fila, una sola pregunta:
+>
+> **¿Qué línea concreta borro para que este test se ponga rojo — y está esa línea en la misma capa
+> que el doble que estoy usando?**
+>
+> Si la respuesta es «ninguna» o «está en otra capa», la fila no vale todavía.
+
 ## 9b. Matriz de tests (derivada del contrato y del riesgo, no de una cuota)
 
 > 🔴 **rojo primero, siempre.** Cada fila entra como test que falla por la razón correcta antes de
@@ -446,8 +561,8 @@ la petición se ignora — no se lanza una segunda. Tiene test propio (T-VM-6).
 | T-D-1 | `PageNumber(n)` existe ⟺ `n ∈ 1...500`; `rawValue == n` | PBT |
 | T-D-2 | `PageNumber(n) == nil` para `n ≤ 0` y `n > 500` | PBT |
 | T-D-3 | `MoviePage.nextPage` es `page+1` o `nil` — nunca otro valor | PBT |
-| T-D-4 | Todo caso de `MoviesError` tiene `messageKey` no vacío y **distinto** de los demás | exhaustivo |
-| T-D-5 | Toda `messageKey` existe en el String Catalog en ES **y** en EN | exhaustivo (fase 9) |
+| T-D-4 | Dos casos distintos de `MoviesError` no comparten copy | exhaustivo |
+| T-D-5 | Por cada caso, su `ScreenError` renderizado en `Locale(identifier: "es")` **difiere del literal fuente** | exhaustivo (fase 9). No basta con que el `switch` sea exhaustivo —eso solo garantiza que hay literal, no que esté traducido—: sin este test, una cadena sin traducir cae al inglés y solo lo caza el golden 7 a ojo. **Muere si falta la traducción.** Depende de `SWIFT_EMIT_LOC_STRINGS` (OQ-3) |
 
 **Conformidad puerto ↔ implementaciones (fases 1, 3, 7). UNA suite, dos ejecuciones.**
 
@@ -457,7 +572,13 @@ la petición se ignora — no se lanza una segunda. Tiene test propio (T-VM-6).
 | T-C-2 | C2 — `nextPage` = `p+1` o `nil` en la última | ✓ | ✓ |
 | T-C-3 | C3 — el orden de la fuente se conserva | ✓ | ✓ |
 | T-C-4 | C4 — página válida más allá de la última: vacía, `nextPage nil`, no lanza | ✓ | ✓ |
-| T-C-5 | C5 — idempotencia observable | ✓ | ✓ |
+| T-C-5 | C5 — sin efectos secundarios observables: pedir la página 1 dos veces no altera lo que devuelve la página 2 | ✓ | ✓ |
+
+> Nota honesta sobre T-C-5: hoy **no puede fallar** en ninguna de las dos implementaciones (ni el
+> fake ni un adapter HTTP sin estado tienen estado que corromper), y el nivel 4 lo delatará como
+> test que no mata mutantes. Se mantiene porque su valor real llega con el **decorador de caché**
+> (§16.2), que sí tiene estado: es la garantía que ese decorador tendrá que seguir cumpliendo.
+> Se declara aquí para que nadie lo cuente como cobertura de hoy.
 | T-C-6 | C6 — id inexistente ⇒ `.notFound` | ✓ | ✓ |
 | T-C-7 | C7 — nunca escapa un `APIError`/`URLError`/`DecodingError` | ✓ | ✓ |
 | T-C-8 | C8 — ninguna salida contiene la clave sentinela | ✓ | ✓ |
@@ -489,6 +610,7 @@ la petición se ignora — no se lanza una segunda. Tiene test propio (T-VM-6).
 | T-A-7 | `malformed_page.json` (falta `results`) | `.malformedResponse` |
 | T-A-8 | `results` con tipos equivocados | `.malformedResponse` |
 | T-A-9 | `MockNetworkExchange(latency:)` + `Task` cancelado a media petición | `.cancelled` |
+| T-A-9b | `MockURLProtocol` devuelve `URLError(.cancelled)` **sin** cancelar la Task | el repositorio lanza el caso **recuperable**, NO `.cancelled` (OQ-14). **T-A-9 y T-A-9b son un par**: por separado ninguno mata los dos mutantes («siempre `.cancelled`» y «nunca `.cancelled`»); juntos, sí. Aquí vive la regla —en el adapter—, así que aquí va su test |
 | T-A-10 | la query/headers enviados incluyen `page=<n>` (assert sobre `recordedRequests`) | request correcta |
 | T-A-11 | config sin clave o con el placeholder | `.unauthorized`, sin imprimir el valor |
 | T-A-12 | **sentinela**: para CADA caso de error, ni `description`, ni `ScreenError.title/message`, ni la traza contienen la clave | 0 apariciones |
@@ -500,7 +622,8 @@ la petición se ignora — no se lanza una segunda. Tiene test propio (T-VM-6).
 | T-VM-1 | `onAppear` OK con resultados | eventos `[.loadedPage(1)]`; `phase: .idle → .loading(.fullScreen) → .content`; películas publicadas |
 | T-VM-2 | `onAppear` OK con 0 resultados | `phase == .empty` (**no** `.content` con lista vacía) |
 | T-VM-3 | `onAppear` con error | `phase == .error(...)`; el `retry` del `ScreenError` vuelve a llamar al puerto (2ª entrada en el spy) |
-| T-VM-4 | segundo `onAppear` con el primero en vuelo | el primero se cancela y **NO** deja `phase == .error` (Trampa A) |
+| T-VM-4 | el fake lanza `MoviesError.cancelled` con la Task **viva** | `phase` **NO es `.loading`** (ni se queda colgada ni pinta error espurio). Aserción sobre el estado que de verdad puede romperse: la anterior (`== .error` con retry) es cierta para *cualquier* error que escape, con o sin la regla de OQ-14, porque `performLoad` siempre pasa un `retry` no-nil (`BaseViewModel.swift:204-213`) |
+| T-VM-11 | reevaluar el closure de rutas del `Coordinator` (simulando un `push`+`pop`) | el ViewModel **no** se reemplaza y las películas acumuladas siguen ahí (Trampa C). Muere si la factoría construye una instancia nueva en vez de devolver la memoizada |
 | T-VM-5 | scroll al final con `nextPage != nil` | el puerto se llama **exactamente una vez** con `nextPage` |
 | T-VM-6 | scroll al final llamado 5 veces seguidas | el puerto se llama **una** vez (Trampa B) |
 | T-VM-7 | scroll al final en la última página | el puerto **no se llama** |
@@ -542,16 +665,14 @@ A las 2-4 semanas:
 
 | # | Riesgo | Mitigación |
 |---|---|---|
-| R1 | **La API que asume este PRD la leí de los clones locales de `spm-pro`, no de los tags publicados** (AppFoundation 0.1.1 / CoreNetworking 0.1.0). Pueden divergir. | **OQ-10**. La fase 3 es la primera que compila contra los paquetes de verdad; si diverge, Open Question + finding, **jamás un parche local** (§NO-TOUCH). |
+| R1 | **La API que asume este PRD la leí de los clones locales de `spm-pro`, no de los tags publicados** (AppFoundation 0.1.1 / CoreNetworking 0.1.3). Pueden divergir. | **OQ-10**. La fase 3 es la primera que compila contra los paquetes de verdad; si diverge, Open Question + finding, **jamás un parche local** (§NO-TOUCH). |
 | R2 | La clave de TMDB acaba en una URL logueada. `LoggingInterceptor` redacta **headers** sensibles; una query `?api_key=` viaja en la URL completa. | **OQ-1** + T-A-12 (sentinela) como test permanente en toda fase que toque `Data/`. |
 | R3 | `switch try await` deja el archivo **entero** sin escanear en el nivel 2, y nadie avisa. | Convención del proyecto (ligar el resultado a una variable antes del `switch`) + criterio de aceptación "0 `PartialParsing` en `Sources/`". |
 | R4 | Fallo silencioso de paginación: `performActivity` cancela la actividad en vuelo y el listado deja de crecer sin error. | Trampa B: guard de re-entrada en la lógica **pura** + T-P-8 y T-VM-6. |
-| R5 | Flash de pantalla de error al cancelar una carga. | Trampa A + T-VM-4. |
+| R5 | Flash de pantalla de error por una cancelación de transporte (sesión invalidada), con la Task viva. | Trampa A + T-VM-4. El caso superseded lo cubre ya `performLoad`. |
 | R6 | `popular` de TMDB se reordena entre peticiones ⇒ filas duplicadas. | T-P-6 (property-based de unicidad y orden). |
 | R7 | El drift-ratchet está en `errors: 0, warns: 0` y `SWIFT_TREAT_WARNINGS_AS_ERRORS=YES`: **un solo warning nuevo bloquea**. | No es un riesgo a mitigar, es la condición de trabajo. Se declara aquí para que nadie lo descubra a mitad de fase. |
 | R8 | Contexto agotado a mitad de capa (el modo de fallo del PRD-monolito). | §5b: 9 fases, ninguna cruza red+dominio+UI. |
-| R9 | **Gate mudo detectado**: `tools/skill-matrix.conf` tiene el glob `*/ui/*` en **minúsculas** mientras `tools/layers.conf` usa `*/UI/*` en mayúsculas. Los archivos de `Sources/UI/` que no casen con `*View*.swift`/`*ViewModel*.swift` (p. ej. `MoviesRoute.swift`, `MoviesModule.swift`) **no exigirán ninguna skill**. | Es tooling (§NO-TOUCH). Se **registra en el ledger** en la fase 5, no se arregla de paso. |
-| R10 | `tools/verify.conf` no lleva `-test-timeouts-enabled YES`, que la lección [2026-08-09] pide para proyectos Swift; un test colgado consumiría el job de CI en silencio. | Tooling (§NO-TOUCH): se **registra en el ledger** en la fase 1. |
 
 ## 13. Open Questions
 
@@ -580,27 +701,30 @@ A las 2-4 semanas:
       quedan limpias. Ojo: eso era incomodidad, no un riesgo de secretos — en tests la credencial
       siempre habría sido ficticia, porque `MockURLProtocol.canInit` devuelve `true` siempre y
       **ninguna petición sale a la red**.
-- [x] **OQ-2 — RESUELTA (2026-08-27). `JSONDecoder()` sin configurar.**
-      `Sources/CoreNetworking/APIService.swift:225` hace `try JSONDecoder().decode(Response.self,
-      from: data)`, sin `keyDecodingStrategy` ni `dateDecodingStrategy`. Consecuencias para esta
-      vertical, ya no suposiciones:
-      - Los DTO llevan **`CodingKeys` explícitas** (`case posterPath = "poster_path"`). La
-        estrategia por defecto NO convierte snake_case.
-      - `release_date` llega como **`String`**, no como `Date`. Se modela como `String` en el DTO y
-        la conversión —si llega a hacer falta— vive en el mapeo a la entidad, no en el decoder.
-      - T-A-1 sigue en la matriz: fija esto contra un fixture real en vez de dejarlo escrito solo
-        aquí, que es donde se pudre.
-      **Y destapa un finding contra `CoreNetworking`, que es exactamente para lo que se publicó en
-      `0.x` antes de congelar la API:** el decoder se instancia dentro de `execute` y **no es
-      configurable por quien consume el paquete**. Ningún adoptante puede elegir una
-      `dateDecodingStrategy` ni reutilizar un decoder entre llamadas (se crea uno por request). No
-      bloquea esta vertical —TMDB es snake_case con fechas en texto—, pero es una limitación real
-      de la API que la primera app en usarla acaba de encontrar. Va al ledger, no se parchea aquí.
-- [ ] **OQ-3 — 🔴 BLOQUEANTE fase 5. ¿Se autoriza tocar `project.yml`?** Hay dos cambios
-      previsibles: (a) declarar `Sources/Resources/Localizable.xcstrings` para que el String
-      Catalog entre al bundle, y (b) añadir `package: AppFoundation` al target de tests si
-      `import AppFoundation` deja de resolver transitivamente. Son build settings ⇒ decisión de
-      owner (lección [2026-08-08]). Sin autorización previa, la fase 5 se para a mitad.
+- [x] **OQ-2 — RESUELTA (2026-08-28, corregida). El decoder lo elige el consumidor; aquí se elige
+      el de por defecto.** La primera versión de esta resolución citaba
+      `APIService.swift:225` (`JSONDecoder()` recién instanciado) y abría un finding contra
+      `CoreNetworking` por no ser configurable. **Ese finding ya está cerrado**: el paquete lo
+      resolvió en `0.1.2` — `NetworkingConfiguration.makeDecoder` es una fábrica
+      `@Sendable () -> JSONDecoder` con default `{ JSONDecoder() }`, y `APIService` la usa
+      (`:76`, `:94`). El PRD se había quedado atrás de su propio arreglo; lo cazó el design-review.
+      **Lo que esto cambia:** usar el decoder por defecto deja de ser una restricción del paquete y
+      pasa a ser una **elección de este módulo**, y como tal se declara: DTOs con `CodingKeys`
+      explícitas (`case posterPath = "poster_path"`) **porque preferimos que la traducción
+      snake_case→camelCase se lea en el DTO**, delante de quien mantiene el mapeo, en vez de
+      ocurrir por una estrategia global invisible. `release_date` llega como `String`; convertirlo
+      —si hace falta— es trabajo del mapeo a la entidad, no del decoder.
+      T-A-1 fija la elección contra un fixture real: si alguien pone `.convertFromSnakeCase` en la
+      configuración, ese test se pone rojo.
+- [ ] **OQ-3 — 🔴 BLOQUEANTE fase 5. ¿Se autoriza tocar `project.yml`?** Queda **solo la parte
+      (a)**: declarar `Sources/Resources/Localizable.xcstrings` para que el String Catalog entre al
+      bundle. Son build settings ⇒ decisión de owner (lección [2026-08-08]).
+      **Y dos cosas más en el mismo viaje**, que sin ellas el mecanismo de B4 no funciona:
+      `knownRegions`/`CFBundleLocalizations` con `es` (sin eso el golden 7 falla aunque el
+      `.xcstrings` esté perfecto) y `SWIFT_EMIT_LOC_STRINGS: YES` (sin eso el catálogo no extrae
+      nada, en silencio — ver OQ-15).
+      *(La parte (b) —`package: AppFoundation` en el target de tests— **está resuelta**:
+      `Tests/UnitTests/SmokeTests.swift:3` ya hace `import AppFoundation` y compila.)*
 - [ ] **OQ-4 — 🟠 BLOQUEANTE fase 4/5. ¿`Sources/UI/Movies/` o `Sources/Features/Movies/`?** Dos
       docs internos se contradicen: `architecture/platforms/ios.md` prescribe `Features/<Nombre>/`,
       y `tools/layers.conf` solo aplica la regla "la UI no habla HTTP" al glob `*/UI/*`. Con
@@ -639,18 +763,57 @@ A las 2-4 semanas:
       raíz, así que `mutation-score.sh` no tiene runner. ¿Se autoriza crear esa config en la fase 9
       para fijar el primer piso con este módulo? Si la respuesta es no, el §15 **no puede** incluir
       el gate de mutación y hay que decirlo en vez de fingirlo.
-- [ ] **OQ-10 — 🟡 ¿La API que asume este PRD existe en los tags resueltos?** Lo que leí es el
-      árbol local de `/Users/hiram/Desktop/PROYECTOS/spm-pro/{AppFoundation,CoreNetworking}`, que
-      puede ir por delante de AppFoundation 0.1.1 / CoreNetworking 0.1.0. Confirmar antes de la
-      fase 4 (`BaseViewModel.performLoad(successTransition:)`, `LoadSuccessTransition`,
-      `ActivityErrorHandling`, `Container(parent:)`, `DeepLinkAction`) y antes de la fase 3
-      (`MockNetworkExchange(latency:)`, `MockURLProtocol.recordedRequests`).
-- [ ] **OQ-11 — 🟡 ¿Qué permite exactamente `ScreenContainer`?** No pude localizar su archivo en el
-      clon; el README solo documenta `ScreenContainer(viewModel:navigation:)` y
-      `.withBack(title:)`. Necesito saber: (a) si la pantalla **raíz** puede montarse sin botón
-      atrás, (b) si el estado `.empty` admite copy y vista propios (el listado vacío necesita un
-      mensaje localizado), y (c) si la barra admite un título localizado por `LocalizedStringResource`.
-      Si algo de esto no existe, es una petición a `AppFoundation`, no un workaround aquí.
+- [x] **OQ-10 — RESUELTA (2026-08-28). El clon local y lo publicado son idénticos.** Se clonaron
+      ambos repos publicados en un temporal y se comparó `Sources/` contra el árbol local:
+      `diff -rq` sin diferencias en los dos paquetes. Así que la API que este PRD asume, leída del
+      clon, **es** la que resuelve `Package.resolved` (AppFoundation 0.1.1, CoreNetworking 0.1.3).
+      *Nota de método, por si alguien repite la comprobación:* no sirve `git merge-base
+      --is-ancestor` contra el clon, porque las revisiones publicadas salieron de un
+      `git subtree split` y son commits distintos con el mismo contenido. Se compara **contenido**,
+      no ancestría. Y `DeepLinkAction` sale de la lista: es de otro scope.
+- [x] **OQ-11 — RESUELTA (2026-08-28). Las tres cosas existen.** No era una pregunta para el
+      owner: era una lectura que faltó. El archivo está en
+      `Sources/AppFoundation/UI/Containers/ScreenContainer.swift`:
+      (a) **sí** — `navigation:` es `.hidden` por defecto y hay init de conveniencia
+      `ScreenContainer(viewModel:title:style:navigationPlacement:content:)` sin botón atrás
+      (`:457-471`); (b) **sí** — `.emptyView { }` acepta vista y copy propios (`:437-441`);
+      (c) **sí** — el título es `LocalizedStringResource`. Ninguna petición a `AppFoundation`.
+      Corregido de paso: la firma real es `.withBack(title:style:backAction:)`, no
+      `.withBack(title:)`.
+- [x] **OQ-13 — RESUELTA por el owner (2026-08-28). Factoría memoizada.** La identidad del
+      ViewModel **no** se confía a `@State`: vive en un `MoviesScreenStore` retenido por el
+      composition root, y el closure de rutas hace `PopularMoviesView(viewModel: store.popular())`.
+      La vista-pantalla con `@State` sigue siendo válida encima, pero deja de ser lo único que
+      sostiene el golden 6.
+      **Por qué esta y no `@State` a secas:** `@State` solo tiene identidad cuando SwiftUI
+      *instala* la vista, y §8 prohíbe UI tests — así que la versión anterior de T-VM-11 **no podía
+      fallar**, la misma patología que motivó B1. Con la factoría, T-VM-11 es un test unitario
+      corriente: dos invocaciones de `store.popular()` devuelven la **misma instancia** (`===`) y
+      conservan las películas acumuladas. Muere si la factoría construye una nueva.
+      **Entregable:** `MoviesScreenStore.swift` entra en §5 y en la **fase 5** (no en la 8): si la
+      fase 5 entrega el closure sin él, mergea con el bug de identidad dentro, y cada fase tiene
+      que ser mergeable con la base verde.
+- [x] **OQ-14 — RESUELTA por el owner (2026-08-28). El adapter distingue quién canceló.**
+      Si `Task.isCancelled` es `false`, la cancelación **no la pidió nadie de nuestro lado** (sesión
+      invalidada, `URLError.cancelled` de transporte): el adapter la mapea a un error **recuperable
+      con retry**, no a `MoviesError.cancelled`. Ese caso queda reservado a la cancelación propia,
+      la que sí debe convertirse en `CancellationError`.
+      **Qué resuelve, en orden de importancia:**
+      1. Desaparece el spinner permanente. `performLoad` captura `CancellationError` sin tocar
+         `phase` (`BaseViewModel.swift:200-201`), así que convertir *toda* cancelación habría
+         dejado la pantalla cargando para siempre — cambiar un fallo visible por uno silencioso es
+         peor que el original.
+      2. **T-VM-4 pasa a aserción positiva**: `phase == .error` con retry disponible, en vez de
+         «NO queda en `.error`». Una aserción negativa pasaba igual con la pantalla colgada.
+      3. La conversión a `CancellationError` queda **acotada a los cierres de `performLoad`**. Sin
+         acotarla, aplicada a la paginación, `performActivity` la captura sin llamar a
+         `stopActivity()` (`:240-241`): indicador encendido para siempre y paginación muerta — que
+         es el riesgo R4 entrando por la puerta que abre la Trampa A.
+      **Fila nueva en la matriz:** *página N cancelada con la Task viva ⇒ `activity == .none`, el
+      guard de re-entrada liberado, y un scroll posterior vuelve a pedir esa página* (T-P-11).
+- [ ] **OQ-15 — 🟠 ¿Entra `SWIFT_EMIT_LOC_STRINGS: YES` en el mismo permiso de `project.yml` que
+      OQ-3(a)?** Sin él, el String Catalog **no extrae nada** y todo el mecanismo de B4 produce un
+      catálogo vacío en silencio. Va junto a `knownRegions`/`CFBundleLocalizations` con `es`.
 - [ ] **OQ-12 — 🟡 ¿Cómo se presenta el fallo de una página N>1?** El default de `performActivity`
       es un **banner**; la alternativa es una fila de "reintentar" al final del listado (más
       descubrible, más código). Y en cualquier caso: al fallar, ¿se conserva la página pendiente
@@ -685,7 +848,7 @@ A las 2-4 semanas:
 - [ ] `bash tools/verify-run.sh` → **exit 0** (build + suite completa, evidencia firmada contra el
       diff staged)
 - [ ] `bash tools/check-drift.sh` → **0 errores y 0 warnings nuevos** (el ratchet está en 0/0)
-- [ ] `bash tools/check-layers.sh` → **exit 0**, y evalúa archivos reales en `Domain/`, `Data/` y `UI/`
+- [ ] `bash tools/check-layers.sh` → **exit 0**, y evalúa archivos reales en `Domain/` y `UI/` — **no en `Data/`**: `layers.conf` no tiene ninguna regla `*/Data/*`, así que esa carpeta no la mira nadie (pedirla es NO-TOUCH: OQ nueva si se quiere)
 - [ ] `bash tools/semgrep-scan.sh` → **exit 0** y **0 archivos con `PartialParsing` bajo `Sources/`**
 - [ ] `bash tools/lesson-detector-link.sh` → exit 0
 - [ ] `bash tools/check-execution-map.sh` → exit 0 (mapa actualizado en el **mismo** commit)
@@ -725,8 +888,9 @@ A las 2-4 semanas:
    estaba mal.
 3. **Snapshot tests** de las dos pantallas (fuera de scope aquí, §8): decisión de herramienta +
    coste de mantenimiento.
-4. **Cerrar los findings de R9 y R10** (globs de `skill-matrix.conf` en minúsculas; falta de
-   `-test-timeouts-enabled YES` en `verify.conf`): son tooling, requieren al owner.
+4. ~~Cerrar los findings de R9 y R10~~ — **ya cerrados** durante la preparación de este PRD. Lo
+   que el documento pedía registrar ya estaba arreglado: ordenar findings falsos rompe §10 justo
+   en el módulo que existe para enseñar §10.
 5. **Pull-to-refresh** y el resto de endpoints, si alguna vez hacen falta como demostración.
 
 ## 17. Change log
@@ -734,6 +898,7 @@ A las 2-4 semanas:
 | Fecha | Cambio | Quién |
 |---|---|---|
 | 2026-08-27 | Draft inicial: contratos por capa, matriz de tests, 9 fases, 12 Open Questions | prd-writer |
+| 2026-08-28 | Cierre de los 4 bloqueantes del design-review + OQ-1/2/3(b)/10/11/13/14 resueltas; T-VM-4 recolocado al adapter (T-A-9b) y regla de capa añadida a §9b | owner + reviewer |
 
 ## 18. Gaps detectados (llenar post-ship)
 
@@ -742,8 +907,10 @@ A las 2-4 semanas:
 
 Semillas ya identificadas al escribir el PRD, para no perderlas:
 
-- R9: dos ficheros de configuración del harness usan `ui`/`UI` con distinta caja y uno de los dos
-  gates queda mudo para media capa de presentación.
-- R10: el comando de tests del proyecto no impone límite por test, contra la lección [2026-08-09].
+- ~~R9~~ **CERRADO (2026-08-28)**: `skill-matrix.conf:42` ya tiene `*/UI/*` junto a `*/ui/*`,
+  con el comentario que explica por qué hacen falta las dos grafías. No queda gap.
+- ~~R10~~ **CERRADO (2026-08-28)**: `verify.conf:46` ya lleva `-test-timeouts-enabled YES`. Lo que
+  queda —que el umbral no esté fijado, sino en el default de Xcode— vive como finding
+  `f-5529624d` en el ledger, con su redacción exacta.
 - El README de `CoreNetworking` documenta el pipeline pero **no** la configuración del `JSONDecoder`
   (OQ-2), que es lo primero que necesita quien escribe un DTO.

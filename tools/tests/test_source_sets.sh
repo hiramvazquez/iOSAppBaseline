@@ -177,25 +177,10 @@ _case_semgrep_roto_es_como_ausente() {
 test_semgrep_roto_se_trata_como_ausente_no_como_verde() {
   _ss_repo _case_semgrep_roto_es_como_ausente; }
 
-# AMBER-4 del design-review: "operativo" no es un hecho binario POR REPO. Si
-# semgrep se atraganta con UN .kt, ese archivo concreto no lo ha mirado nadie.
-_case_el_kt_que_semgrep_no_digiere_pasa_por_el_grep() {
-  _common 'package dominio' 'class Repo'
-  # El import va DESPUÉS del constructo roto a propósito. Con el import delante,
-  # semgrep hace parsing parcial y lo encuentra igual — el test pasaría sin que
-  # la fusión con el grep existiera, que es como estaba escrito al principio y
-  # por qué no valía. Así semgrep devuelve CERO hits en este archivo y lo único
-  # que puede salvar la violación es el fallback.
-  printf '%s\n' 'class Roto { fun f( { { {{{ ][ )' 'import android.net.Uri' \
-    > shared/src/commonMain/kotlin/Roto.kt
-  local out rc; out="$(bash tools/check-source-sets.sh 2>&1)"; rc=$?
-  [ "$rc" = "1" ] || {
-    echo "    un .kt que semgrep no pudo parsear entero debe pasar por el grep (exit $rc)"
-    printf '%s\n' "$out" | sed 's/^/      /'; return 1; }
-  case "$out" in *Roto.kt*) : ;; *) echo "    no nombró el archivo saltado"; return 1 ;; esac
-}
-test_un_kt_que_semgrep_no_digiere_pasa_por_el_grep() {
-  _ss_repo _case_el_kt_que_semgrep_no_digiere_pasa_por_el_grep; }
+# ── La fusion semgrep + grep vive en test_source_sets_fallback.sh ───
+# Los dos tests que controlan la salida de semgrep con un stub se movieron alli
+# por el limite de §4 (este archivo ya se dividio una vez por lo mismo, ver
+# test_source_sets_prefijos.sh).
 
 # ── El registro de "semgrep fue operativo aquí" (PRD 0005 §6, AMBER-3) ──
 # Habilita la auto-escalada en CI: una vez que semgrep analizó Kotlin en ESTE
@@ -263,27 +248,6 @@ _case_una_ruta_con_espacios_se_sigue_mirando() {
 }
 test_un_commonmain_bajo_una_ruta_con_espacios_se_sigue_mirando() {
   _ss_repo _case_una_ruta_con_espacios_se_sigue_mirando; }
-
-# ── Doble conteo: el archivo con PartialParsing está en LAS DOS listas ──
-# Cazado por la ronda 3 del reviewer. Cuando semgrep parsea a medias, ese
-# archivo sale a la vez en sus hits (encontró lo que sí digirió) y en la lista
-# de saltados (reportó el error), así que el re-scan por grep lo cuenta otra
-# vez. El exit no cambia —sigue 1— pero `violaciones=N` miente, y una cifra
-# derivable podrida es el pecado del que va la mitad de este PRD.
-_case_partial_parsing_no_cuenta_dos_veces() {
-  _common 'package dominio' 'class Repo'
-  # Import ANTES del constructo roto: semgrep lo encuentra por parseo parcial Y
-  # marca el archivo como saltado. Es el caso que el test de AMBER-4 esquiva.
-  printf '%s\n' 'package dominio' 'import android.net.Uri' \
-    'class Roto { fun f( { { {{{ ][ )' > shared/src/commonMain/kotlin/Roto.kt
-  local out rc; out="$(bash tools/check-source-sets.sh 2>&1)"; rc=$?
-  [ "$rc" = "1" ] || { echo "    la violación real no bloqueó (exit $rc)"; return 1; }
-  case "$out" in *"violaciones=1"*) : ;; *)
-    echo "    la MISMA violación se contó más de una vez:"
-    printf '%s\n' "$out" | grep -E 'SOURCE_SETS|Roto.kt' | sed 's/^/      /'; return 1 ;; esac
-}
-test_una_violacion_en_un_kt_parseado_a_medias_se_cuenta_una_vez() {
-  _ss_repo _case_partial_parsing_no_cuenta_dos_veces; }
 
 # ── Terminabilidad: el detector se deja matar ───────────────────────
 # Dos rondas de review seguidas encontraron un bug en las mismas tres líneas de

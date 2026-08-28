@@ -456,6 +456,128 @@ _case_sync_trae_la_maquinaria_nueva() {
 }
 test_sync_trae_la_maquinaria_nueva() { _upg_sandbox_copia _case_sync_trae_la_maquinaria_nueva; }
 
+_case_sync_no_manda_el_ci_del_template() {
+  # Los workflows de este repo son el Anillo 3 DEL TEMPLATE: corren la suite del
+  # harness y un gate de una fase de su PRD. Un adoptante que los recibiera se
+  # encontraria la CI del template disparandose en cada push suyo, quemando cupo
+  # de Actions y ejecutando un gate que referencia un PRD que su repo no tiene.
+  ( cd "$TPL_DIR" && mkdir -p .github/workflows scripts \
+    && printf 'name: harness-ci\non: [push]\n' > .github/workflows/harness-ci.yml \
+    && printf 'name: gate-0a\non: [workflow_dispatch]\n' > .github/workflows/gate-0a-macos.yml \
+    && printf '#!/usr/bin/env bash\necho maquinaria\n' > scripts/algo-nuevo.sh \
+    && git add -A && git commit -qm "template: su CI y maquinaria nueva" ) >/dev/null 2>&1
+
+  # El adoptante tiene SU workflow, con el nombre que usaria de verdad.
+  mkdir -p .github/workflows
+  printf 'name: gates\non: [push]\n# EL MIO\n' > .github/workflows/gates.yml
+  git add -A >/dev/null 2>&1
+  git commit -qm "proyecto: mi CI" >/dev/null 2>&1
+
+  bash tools/upgrade.sh >/dev/null 2>&1
+
+  [ ! -e .github/workflows/harness-ci.yml ] \
+    || { echo "    el sync trajo harness-ci.yml: la CI del template al repo del adoptante"; return 1; }
+  [ ! -e .github/workflows/gate-0a-macos.yml ] \
+    || { echo "    el sync trajo gate-0a-macos.yml, un gate de un PRD que este repo no tiene"; return 1; }
+  grep -q '# EL MIO' .github/workflows/gates.yml \
+    || { echo "    el sync toco el workflow propio del adoptante"; return 1; }
+  # Contraprueba: la maquinaria de verdad SI tiene que viajar, o este test
+  # pasaria con un upgrade.sh que no sincroniza nada en absoluto.
+  [ -e scripts/algo-nuevo.sh ] \
+    || { echo "    el sync no trajo la maquinaria nueva: no se probo nada"; return 1; }
+}
+test_sync_no_manda_el_ci_del_template() { _upg_sandbox_copia _case_sync_no_manda_el_ci_del_template; }
+
+# El aviso de huerfanos lee el SYNC_PATHS del upgrade.sh VIEJO con
+# `grep -m1 '^SYNC_PATHS=' | cut -d'"' -f2`, que asume UNA linea. Si alguien
+# parte la asignacion en varias con `\`, el parser se queda con el primer
+# tramo y descarta el resto EN SILENCIO: avisaria de menos, que es la direccion
+# de fallo mala —el diseño se calla cuando no puede leer nada, no cuando leyo
+# a medias y no lo sabe—. Este test es el recordatorio mecanico de que las dos
+# cosas van juntas: si partes la linea, arregla tambien `_sync_paths_de`.
+test_sync_paths_cabe_en_una_linea_como_asume_su_parser() {
+  local linea; linea="$(grep -c '^SYNC_PATHS=' "$PROJECT_ROOT/tools/upgrade.sh")"
+  [ "$linea" = "1" ] \
+    || { echo "    esperaba UNA asignacion de SYNC_PATHS, hay $linea"; return 1; }
+  # Y que esa unica linea cierre sus comillas: si no, esta partida.
+  local val; val="$(grep -m1 '^SYNC_PATHS=' "$PROJECT_ROOT/tools/upgrade.sh")"
+  case "$val" in
+    SYNC_PATHS=\"*\") ;;
+    *) echo "    SYNC_PATHS no cierra comillas en su linea: el parser de"
+       echo "    _sync_paths_de leeria solo el primer tramo, en silencio"
+       echo "    → $val"; return 1 ;;
+  esac
+}
+
+_case_sync_avisa_de_lo_que_dejo_de_ser_maquinaria() {
+  # El caso que el fix anterior NO cubria, y que es el del adoptante REAL:
+  # ya recibio los workflows del template en un sync viejo. Sacarlos de
+  # SYNC_PATHS no se los quita —el `_es_maquinaria || continue` los descarta
+  # antes de clasificarlos—, asi que sin este aviso se quedan corriendo en su
+  # CI para siempre y NADIE se lo dice. Un fix que solo alcanza a las
+  # adopciones nuevas, anunciado como si alcanzara a todas, es justo la clase
+  # de defensa a medias que este harness no se permite.
+  #
+  # El sandbox simula la version VIEJA de upgrade.sh —la que si listaba
+  # .github/workflows— porque el aviso compara esa definicion con la de hoy.
+  # Sin este paso el test pasaria por la razon equivocada.
+  ( cd "$TPL_DIR" \
+    && sed -i.bak 's|^SYNC_PATHS="scripts|SYNC_PATHS=".github/workflows scripts|' tools/upgrade.sh \
+    && rm -f tools/upgrade.sh.bak \
+    && grep -q '^SYNC_PATHS=".github/workflows ' tools/upgrade.sh \
+    && mkdir -p .github/workflows \
+    && printf 'name: harness-ci\non: [push]\n' > .github/workflows/harness-ci.yml \
+    && git add -A && git commit -qm "template: su CI, cuando aun viajaba" ) >/dev/null 2>&1 \
+    || { echo "    no pude montar el template 'viejo'"; return 1; }
+
+  # El adoptante ya lo tiene (se lo trajo aquel sync) y su .template-sync
+  # apunta a ese commit del template: el estado real tras el sync viejo.
+  mkdir -p .github/workflows
+  printf 'name: harness-ci\non: [push]\n' > .github/workflows/harness-ci.yml
+  # README del adoptante: existe ANTES del sync para que la asercion de ruido
+  # de mas abajo pueda ser falsa. Creado despues, el aviso no podria nombrarlo
+  # ni queriendo y esa mitad del test no probaria nada (lo cazo el reviewer).
+  printf 'readme del proyecto\n' > README.md
+  git add -A >/dev/null 2>&1
+  git commit -qm "proyecto: lo que trajo el sync viejo" >/dev/null 2>&1
+  ( cd "$TPL_DIR" && git rev-parse HEAD ) > tools/.template-sync 2>/dev/null
+
+  # El template avanza DESPUES de ese registro, ya con la version de hoy de
+  # upgrade.sh (sin .github/workflows). Sin un commit nuevo, upgrade sale por
+  # "ya estas al dia" y no recorre el camino de delta, el unico con el aviso.
+  ( cd "$TPL_DIR" \
+    && cp "$PROJECT_ROOT/tools/upgrade.sh" tools/upgrade.sh \
+    && printf 'v4 maquinaria mas nueva\n' > scripts/gate.sh \
+    && git add -A && git commit -qm "template: retira su CI del sync" ) >/dev/null 2>&1
+
+  local out; out="$(bash tools/upgrade.sh 2>&1)"
+
+  printf '%s' "$out" | grep -q 'harness-ci.yml' \
+    || { echo "    el sync NO menciono el workflow huerfano que dejo en el repo:"
+         printf '%s\n' "$out" | tail -12 | sed 's/^/      /'; return 1; }
+  printf '%s' "$out" | grep -qi 'DEJO de sincronizar' \
+    || { echo "    lo nombro, pero sin decir que dejo de sincronizarse"; return 1; }
+  # Y no lo borra por su cuenta: puede que el adoptante lo haya adaptado.
+  [ -f .github/workflows/harness-ci.yml ] \
+    || { echo "    BORRO un archivo del adoptante en vez de avisar"; return 1; }
+
+  # LA MITAD QUE FALTABA: que no sea ruido. Un primer intento recorria el arbol
+  # entero de BASE_REC y nombraba todo lo que hoy no fuera maquinaria — en una
+  # adopcion por copia, el repo casi completo. Un aviso de cincuenta lineas se
+  # aprende a saltar en la primera corrida (ley del 10%, §14.2), asi que el
+  # test afirma tambien lo que NO debe aparecer.
+  local ruido=""
+  local f
+  for f in AGENTS.md README.md App.swift; do
+    [ -e "$f" ] || { echo "    falta el fixture $f: la asercion de ruido seria vacua"; return 1; }
+    printf '%s' "$out" | grep -qE "· .*$f" && ruido="$ruido $f"
+  done
+  [ -z "$ruido" ] \
+    || { echo "    el aviso nombra archivos que NUNCA fueron maquinaria:$ruido"
+         echo "    (no 'dejaron de serlo' — es ruido, y un aviso ruidoso no se lee)"; return 1; }
+}
+test_sync_avisa_de_lo_que_dejo_de_ser_maquinaria() { _upg_sandbox_copia _case_sync_avisa_de_lo_que_dejo_de_ser_maquinaria; }
+
 _case_sync_funde_bloques_y_reporta_prosa() {
   # El manifiesto viaja como maquinaria, pero README/ADOPTION son del
   # adoptante. El sync solo puede instalar su fragmento delimitado; la prosa

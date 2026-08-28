@@ -212,7 +212,16 @@ git log --oneline HEAD.."$REMOTE/$BRANCH" | sed 's/^/   /'
 # del proyecto (sus historias), pero la PLANTILLA es harness — y desde que
 # `run.sh` exige la sección de verificación de criterios, mandar el gate sin
 # mandar la plantilla sería mandar la exigencia sin las instrucciones.
-SYNC_PATHS="scripts ci tools/lib lefthook.yml .semgrepignore tools/capabilities.json tools/tests tools/semgrep/rules tools/semgrep/fixtures tools/findings/fixtures tools/metrics tools/agent-backends tools/agent-prompts tools/architecture.conf.example .github/workflows backlog/_template.md"
+# `.github/workflows` NO esta aqui, y estuvo: los tres workflows de este repo
+# son el Anillo 3 DEL TEMPLATE —corren la suite del harness, `validate-harness`
+# y un gate de una fase del PRD 0005— y no compilan ni prueban la app de nadie.
+# Un adoptante los recibia y, en cada push suyo, se le disparaba la CI del
+# template ademas de la propia: cupo de Actions quemado y un `gate-0a-macos`
+# que referencia un PRD que su repo no tiene. Lo que SI le corresponde a un
+# adoptante son los ejemplos de `ci/examples/`, que se copian una vez al
+# adoptar y a partir de ahi son suyos. Septima instancia del patron
+# "el template le exige al adoptante artefactos que son del template".
+SYNC_PATHS="scripts ci tools/lib lefthook.yml .semgrepignore tools/capabilities.json tools/tests tools/semgrep/rules tools/semgrep/fixtures tools/findings/fixtures tools/metrics tools/agent-backends tools/agent-prompts tools/architecture.conf.example backlog/_template.md"
 SYNC_GLOBS="tools/*.sh tools/findings/*.sh tools/findings/*.ts"
 
 # ── Qué cuenta como marcador FILL (y qué NO) ────────────────────────
@@ -360,6 +369,69 @@ if tocados:
     print("   Revísalos: puede que este sync ya los resuelva. Cerrar sigue siendo")
     print("   explícito — `bash tools/findings/findings.sh close <id> --resolution \"...\"`.")
 PYEOF
+}
+
+# ── Lo que DEJO de ser maquinaria y ya viajo ────────────────────────
+# Sacar una ruta de SYNC_PATHS solo protege a quien adopta DESDE CERO. Al
+# adoptante que ya la recibio no le pasa nada: el `_es_maquinaria || continue`
+# de mas abajo la descarta antes de clasificarla, asi que ni se actualiza ni se
+# borra ni se menciona — se queda ejecutandose para siempre y en silencio. Paso
+# de verdad con los tres workflows del template: la CI del template corriendo
+# en cada push del adoptante, con un gate que referencia un PRD que no tiene.
+#
+# La comparacion es entre la definicion VIEJA de SYNC_PATHS (la que el
+# adoptante uso, leida de su BASE_REC) y la de hoy: solo se nombra lo que
+# ESTABA en la lista y ya no esta. Recorrer el arbol de BASE_REC entero y
+# nombrar todo lo que hoy no sea maquinaria —que fue el primer intento— lista
+# el repo casi completo en una adopcion por copia (AGENTS.md, README, skills,
+# PRDs: nunca fueron maquinaria, no "dejaron de serlo"), y un aviso de
+# cincuenta lineas se aprende a saltar en la primera corrida. La ley del 10%
+# (§14.2) aplica igual a un aviso que a un detector: el ruido no lo debilita,
+# lo anula.
+#
+# No se BORRAN solos a proposito: puede que el adoptante los haya adaptado y
+# ahora sean suyos. Pero callarlos convertiria este fix en el pecado que este
+# harness no comete —anunciar un arreglo que no alcanza a quien ya lo sufrio—,
+# asi que se nombran y la decision es del owner.
+_sync_paths_de() { # _sync_paths_de <commit> → su SYNC_PATHS, o vacio
+  git show "$1:tools/upgrade.sh" 2>/dev/null \
+    | grep -m1 '^SYNC_PATHS=' | cut -d'"' -f2
+}
+
+_avisar_huerfanos_del_sync() { # _avisar_huerfanos_del_sync <base-rec>
+  [ -n "${1:-}" ] || return 0
+  local _viejos _retirados="" _p _h=""
+  _viejos="$(_sync_paths_de "$1")"
+  # Sin la version vieja no hay con que comparar. Se calla en vez de adivinar:
+  # un aviso inventado sobre archivos del adoptante es peor que ninguno.
+  [ -n "$_viejos" ] || return 0
+
+  for _p in $_viejos; do
+    case " $SYNC_PATHS " in
+      *" $_p "*) ;;                       # sigue siendo maquinaria
+      *) _retirados="$_retirados $_p" ;;  # estaba y ya no
+    esac
+  done
+  [ -n "$_retirados" ] || return 0
+
+  for _p in $_retirados; do
+    if [ -d "$_p" ]; then
+      while IFS= read -r _f; do
+        [ -n "$_f" ] && _h="$_h$_f"$'\n'
+      done <<EOF
+$(find "$_p" -type f 2>/dev/null)
+EOF
+    elif [ -f "$_p" ]; then
+      _h="$_h$_p"$'\n'
+    fi
+  done
+  [ -n "$_h" ] || return 0
+
+  printf '\n   ⚠️  El template DEJO de sincronizar estas rutas, y tu copia las\n'
+  printf '      recibio en un sync anterior. Siguen en tu repo y nadie las\n'
+  printf '      actualiza ya. Revisa si te sirven o borralas:\n'
+  printf '%s' "$_h" | sed 's/^/        · /'
+  printf '      (No se borran solas: si las adaptaste, son tuyas.)\n'
 }
 
 _report_no_sincronizado() {
@@ -532,6 +604,7 @@ else
         if _propiedad_compartida "$_f"; then printf 'FILL\t%s\n' "$_f"; else printf 'OK\t%s\n' "$_f"; fi
       done)"
     _DELTA_FILL="$(printf '%s\n' "$_DELTA_PATHS" | awk -F'\t' '$1=="FILL"{print $2}')"
+    _avisar_huerfanos_del_sync "$BASE_REC"
     # shellcheck disable=SC2086  # los paths DEBEN expandirse como argumentos
     if git diff "$BASE_REC" "$REMOTE/$BRANCH" -- $(printf '%s\n' "$_DELTA_PATHS" | awk -F'\t' '$1=="OK"{printf "%s ", $2}') > /tmp/upgrade.patch.$$ 2>/dev/null \
        && [ -s /tmp/upgrade.patch.$$ ]; then

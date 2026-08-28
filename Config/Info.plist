@@ -26,8 +26,8 @@
 	</array>
 	<!-- La clave y el host llegan desde Secrets.xcconfig vía build settings.
 	     Nunca se escriben en el código ni se commitean. -->
-	<key>TMDBAPIKey</key>
-	<string>$(TMDB_API_KEY)</string>
+	<key>TMDBReadAccessToken</key>
+	<string>$(TMDB_READ_ACCESS_TOKEN)</string>
 	<key>TMDBHost</key>
 	<string>$(TMDB_HOST)</string>
 </dict>

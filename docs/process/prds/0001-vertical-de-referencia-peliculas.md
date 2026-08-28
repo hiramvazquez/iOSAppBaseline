@@ -37,8 +37,8 @@ en verde y una vacía:
   (arquitectura, navegación, DI, estados de pantalla) y `CoreNetworking` 0.1.0 (red, pinning,
   reintentos, errores tipados). Hay un smoke test que los importa y los **usa**.
 - **La clave de TMDB ya tiene su tubería**: `Config/Secrets.xcconfig` (gitignored, copiado de
-  `Secrets.example.xcconfig`) → build settings `TMDB_API_KEY` / `TMDB_HOST` → `Config/Info.plist`
-  como `TMDBAPIKey` / `TMDBHost`. El `#include?` es opcional: un clon recién hecho compila igual.
+  `Secrets.example.xcconfig`) → build settings `TMDB_READ_ACCESS_TOKEN` / `TMDB_HOST` →
+  `Config/Info.plist` como `TMDBReadAccessToken` / `TMDBHost`. El `#include?` es opcional: un clon recién hecho compila igual.
 - **La app está vacía.** `Sources/App/BaselineApp.swift` pinta `Text("iOSAppBaseline")` y nada más.
 
 Es decir: hay una arquitectura decidida y compilada, un harness que la vigila, y **cero código de
@@ -117,7 +117,7 @@ Sources/
     MoviesPaginationLogic.swift        ← lógica pura de acumulación/paginación (fase 2)
 
   Data/TMDB/
-    TMDBConfiguration.swift            ← lee TMDBAPIKey/TMDBHost del bundle; falla CERRADA
+    TMDBConfiguration.swift            ← lee TMDBReadAccessToken/TMDBHost; falla CERRADA
     TMDBRequests.swift                 ← BaseRequest para /3/movie/popular y /3/movie/{id}
     TMDBDTOs.swift                     ← DTOs Decodable (frontera de transporte, NO dominio)
     TMDBMovieMapper.swift              ← DTO → dominio (única traducción, sin lógica de negocio)
@@ -342,8 +342,8 @@ la petición se ignora — no se lanza una segunda. Tiene test propio (T-VM-6).
   Lo confirma igualmente el primer test de la fase 3 —decodificar un fixture real a través de
   `APIService` + `MockURLProtocol`—: si el paquete cambiara de decoder en una versión futura, ese
   test se pone rojo. **La lectura del código decide hoy; el test lo mantiene cierto mañana.**
-- `TMDBConfiguration` **falla cerrada**: sin `TMDBAPIKey` o con el placeholder
-  `pon_aqui_tu_clave`, construir el repositorio lanza/devuelve `MoviesError.unauthorized` con copy
+- `TMDBConfiguration` **falla cerrada**: sin `TMDBReadAccessToken` o con el placeholder
+  `pon_aqui_tu_token_de_lectura`, construir el repositorio lanza/devuelve `MoviesError.unauthorized` con copy
   localizado ("falta configurar la clave"), sin imprimir jamás el valor leído.
 
 ## 7. Flujo de la solución
@@ -557,13 +557,29 @@ A las 2-4 semanas:
 
 > **Bloqueantes** para `Approved` o para la fase indicada. Ninguna tiene un default inventado (§1.4).
 
-- [ ] **OQ-1 — 🔴 BLOQUEANTE (seguridad, fase 3). ¿Cómo se autentica contra TMDB?** TMDB admite
-      dos: `?api_key=<clave v3>` en la query, o `Authorization: Bearer <read access token v4>` en
-      cabecera. **No son equivalentes para nosotros**: `LoggingInterceptor` de `CoreNetworking`
-      redacta *headers* sensibles siempre, pero una URL con `?api_key=` se loguea entera y viaja en
-      cualquier traza de red. El xcconfig la llama `TMDB_API_KEY`, lo que sugiere la v3, y eso
-      chocaría con AGENTS.md §6 ("cero secretos en logs"). ¿Qué credencial tiene el owner y cuál
-      usamos? Si es la v3, ¿aceptamos la query o metemos la clave en un header propio?
+- [x] **OQ-1 — RESUELTA (2026-08-28). `Authorization: Bearer <read access token>`.**
+      Decidido con la documentación de TMDB delante, no por preferencia:
+      - **Es lo que TMDB recomienda.** Su guía de autenticación llama al token de lectura *"the
+        default method to authenticate"*, y señala que sirve **para v3 y v4 a la vez**: una sola
+        credencial en vez de dos. Ambos métodos dan el mismo nivel de acceso, así que no se
+        renuncia a nada.
+      - **Y es lo que nuestro propio código exige.** `LoggingInterceptor` redacta los headers
+        siempre (`HeaderRedactor.redact`, `RequestInterceptor.swift:102`) pero loguea la URL
+        entera —`NetLog.network.debug("→ \(method) \(url, privacy: .private)")`, línea 99—. Con
+        `?api_key=` la clave real aparece en la consola de Xcode de cualquiera que depure el
+        proyecto; en un header no aparece nunca. Chocaba de frente con AGENTS.md §6.
+      - `api_key` en query **no está deprecado** y seguiría funcionando; se descarta por lo de
+        arriba, no porque vaya a dejar de servir.
+
+      **Consecuencia para el diseño:** la credencial entra por `defaultHeaders` de
+      `NetworkingConfiguration`, no por `queryItems` del request. El xcconfig pasa a llamarse
+      `TMDB_READ_ACCESS_TOKEN` (el nombre `TMDB_API_KEY` describía la otra opción y habría
+      quedado mintiendo). Y **desaparece un problema de tests que este PRD daba por inevitable**:
+      `MockURLProtocol` casa por método + URL exacta, así que con la credencial en la query cada
+      registro de mock habría tenido que incluirla en la URL; en un header, las URLs de los mocks
+      quedan limpias. Ojo: eso era incomodidad, no un riesgo de secretos — en tests la credencial
+      siempre habría sido ficticia, porque `MockURLProtocol.canInit` devuelve `true` siempre y
+      **ninguna petición sale a la red**.
 - [x] **OQ-2 — RESUELTA (2026-08-27). `JSONDecoder()` sin configurar.**
       `Sources/CoreNetworking/APIService.swift:225` hace `try JSONDecoder().decode(Response.self,
       from: data)`, sin `keyDecodingStrategy` ni `dateDecodingStrategy`. Consecuencias para esta

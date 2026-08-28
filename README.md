@@ -28,7 +28,16 @@ lefthook install
 xcodegen generate && open iOSAppBaseline.xcodeproj
 ```
 
-La clave de TMDB se saca en [themoviedb.org/settings/api](https://www.themoviedb.org/settings/api).
+La credencial se saca en [themoviedb.org/settings/api](https://www.themoviedb.org/settings/api).
+**Es el "API Read Access Token", no la "API Key (v3 auth)"** — son dos valores distintos en esa
+misma página, y aquí sirve el token (el largo, empieza por `eyJ`): viaja en la cabecera
+`Authorization`, que el interceptor de logs redacta siempre. La clave v3 iría en la query, y las
+URLs sí se loguean: acabaría visible en la consola de Xcode de cualquiera que depure.
+
+> **Si ya tenías un `Secrets.xcconfig` de antes**, la variable se llamaba `TMDB_API_KEY` y ahora es
+> `TMDB_READ_ACCESS_TOKEN`. Renómbrala y pon el token de lectura; con el nombre viejo el build
+> resuelve vacío y la app falla en runtime con un mensaje claro, que es el comportamiento buscado.
+
 Sin ella el proyecto **compila igual** —el `#include?` del xcconfig es opcional— y falla en runtime
 con un mensaje claro: un clon recién hecho nunca se rompe por un archivo que no está.
 

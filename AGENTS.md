@@ -181,6 +181,8 @@ actualiza la tabla en el mismo commit (antes la matriz vivía en cinco sitios y 
 | Path que vas a editar | Reference obligatorio |
 |---|---|
 | `**/*View*.swift`, `**/*Screen*.swift` | `architecture/SKILL.md` + `architecture/platforms/ios.md` |
+| `**/Features/**` | `architecture/SKILL.md` + `architecture/platforms/ios.md` |
+| `**/App/**` (composition root: arma el grafo y es por donde entran las credenciales) | `architecture/SKILL.md` + `architecture/platforms/ios.md` + `security/SKILL.md` |
 | `**/*ViewModel*.swift`, `**/*Logic*.swift`, `**/*UseCase*.swift` | `architecture/SKILL.md` + `domain/SKILL.md` + `process/references/tdd-workflow.md` + `platforms/swift-estado-del-arte.md` |
 | `**/Domain/**` | `.agents/skills/domain/SKILL.md` + `process/references/tdd-workflow.md` |
 | `**/Data/**`, `<migraciones-db>/**` | `domain/SKILL.md` (puertos) + `security/SKILL.md` |

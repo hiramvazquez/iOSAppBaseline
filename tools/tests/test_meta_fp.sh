@@ -31,6 +31,7 @@ scripts/agent-hooks/post-edit-verify.sh      :: test_post_edit_verify.sh
 scripts/agent-hooks/drift-stop.sh            :: test_drift_stop.sh
 scripts/agent-hooks/session-start.sh         :: test_session_start.sh
 tools/check-layers.sh                        :: test_layers.sh
+tools/check-layers-coverage.sh               :: test_layers_coverage.sh
 tools/check-conflict-markers.sh              :: test_conflict_markers.sh
 tools/check-exec-bits.sh                     :: test_exec_bits.sh
 tools/check-diff-nature.sh                   :: test_diff_nature.sh

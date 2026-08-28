@@ -1,6 +1,7 @@
 # PRD 0001 — Vertical de referencia: películas (listado + detalle, TMDB)
 
-> **Tipo:** Forward · **Status:** Draft — **los 4 bloqueantes del design-review, cerrados**
+> **Tipo:** Forward · **Status:** ✅ **Approved** (owner, 2026-08-28) — los 4 bloqueantes del
+> design-review cerrados y verificados en el archivo a lo largo de seis pasadas del gate
 >
 > El gate del CÓMO (§12) dio 🔴 RED el 2026-08-27 con 4 bloqueantes y 29 hallazgos, todos
 > verificados contra el código real de los paquetes. Dictamen completo:
@@ -21,10 +22,24 @@
 >   clave cruda. Sustituido por un `switch` exhaustivo con literales `LocalizedStringResource`.
 >
 > **Resueltas también** OQ-1 (Bearer, con la doc de TMDB), OQ-2 (decoder), OQ-3(b), OQ-10 y OQ-11.
-> **Sigue en `Draft`**: quedan Open Questions de owner (OQ-4 a OQ-9, OQ-12) y el `Approved` es
-> suyo, no del design-review.
+> **`Approved` el 2026-08-28.** Siguen abiertas —y NO bloquean el slice 0, que es lo que este
+> `Approved` habilita— las Open Questions OQ-3, OQ-5 a OQ-9, OQ-12, OQ-15, OQ-21 y OQ-22
+> (índice completo en §13). Cada una bloquea el slice donde toca, no este. **OQ-4 resuelta el 2026-08-28** (`Features/`, con `layers.conf`
+> actualizado para que la regla de capa no quedara muda — ver la OQ).
 > **Autor:** prd-writer (sub-agente) · **Fecha:** 2026-08-27 · **Tracking:** —
-> **Design-review:** pendiente
+> **Design-review:** **seis** pasadas, todas 🔴 RED. 2026-08-27 (4 bloqueantes) · 2026-08-28 ×5
+> (26, 13, 12, 13 y 14 hallazgos). Los 4 bloqueantes originales —N1 troceo, N2 contrato
+> republicado, N3 forma de C5, N4 idioma fuente— **están cerrados y verificados en el archivo**.
+> Cada pasada posterior encontró la misma clase de defecto en una variante nueva: un arreglo
+> escrito donde se descubrió el problema y no propagado a las secciones que se marcan o se
+> ejecutan — primero otras secciones del PRD, luego el registro de las propias revisiones, luego
+> el contrato publicado en código. Historial y hallazgos:
+> [`reviews/2026-08-28-design-review-prd-0001.md`](../reviews/2026-08-28-design-review-prd-0001.md).
+>
+> El `Approved` del owner se dio **sobre un gate que nunca llegó a GREEN**, y eso es legítimo
+> por §12: el design-review y el `Approved` son gates distintos. Lo que el owner aprobó es que
+> los cuatro bloqueantes de diseño están cerrados y que el resto son desalineamientos de
+> documento, ninguno de los cuales bloquea el slice 0.
 >
 > **Lecturas obligatorias antes de implementar** (matriz `AGENTS.md` §11 / `tools/skill-matrix.conf`,
 > el hook `skill-reminder` BLOQUEA sin ellas): `.agents/skills/domain/SKILL.md`,
@@ -86,7 +101,7 @@ Medible cuando esté hecho:
 
 | Señal | Antes | Después |
 |---|---|---|
-| Archivos evaluados por las reglas propias de `layers.conf` (`*/Domain/*`, `*/UI/*`) | 0 | > 0, y `check-layers.sh` en verde |
+| Archivos evaluados por las reglas propias de `layers.conf` (`*/Domain/*`, `*/Features/*`) | 0 | > 0, y `check-layers.sh` en verde |
 | `tools/mutation-ratchet.json` | `measured: false` | piso real medido (sujeto a **OQ-9**) |
 | Bloques `<!-- FILL -->` en las 3 skills de arquitectura/dominio sustituidos por una cita a un archivo real | 0 | ≥ 1 por skill |
 | Pantallas de la app con datos reales | 0 | 2 |
@@ -119,32 +134,32 @@ entre "más funcionalidad" y "capa mejor demostrada" se resuelve a favor de la s
 Sources/
   Domain/Movies/
     Movie.swift                        ← entidad + MovieID (value types puros, Sendable)
-    MovieDetail.swift                  ← entidad del detalle (fase 7)
+    MovieDetail.swift                  ← entidad del detalle (slice de detalle)
     PageNumber.swift                   ← tipo-valor con rango cerrado 1...500 (invariante por tipo)
     MoviePage.swift                    ← página de resultados + nextPage: PageNumber?
     MoviesError.swift                  ← error de dominio tipado, CaseIterable. SIN messageKey (§6.4)
     PopularMoviesRepository.swift      ← PUERTO (capability: cargar una página de populares)
     MovieDetailRepository.swift        ← PUERTO (capability: cargar el detalle de una película)
-    MoviesPaginationLogic.swift        ← lógica pura de acumulación/paginación (fase 2)
+    MoviesPaginationLogic.swift        ← lógica pura de acumulación/paginación (slice de paginación)
 
-  Data/TMDB/
+  Data/Movies/
     TMDBConfiguration.swift            ← lee TMDBReadAccessToken/TMDBHost; falla CERRADA
     TMDBRequests.swift                 ← BaseRequest para /3/movie/popular y /3/movie/{id}
     TMDBDTOs.swift                     ← DTOs Decodable (frontera de transporte, NO dominio)
     TMDBMovieMapper.swift              ← DTO → dominio (única traducción, sin lógica de negocio)
     TMDBErrorMapper.swift              ← APIError → MoviesError
     TMDBPopularMoviesRepository.swift  ← ADAPTER del puerto sobre APIServiceProtocol
-    TMDBMovieDetailRepository.swift    ← ADAPTER del puerto de detalle (fase 7)
+    TMDBMovieDetailRepository.swift    ← ADAPTER del puerto de detalle (slice de detalle)
 
-  UI/Movies/                           ← ⚠️ carpeta sujeta a OQ-4 (UI/ vs Features/)
+  Features/Movies/                     ← OQ-4 RESUELTA (2026-08-28): Features/, no UI/
     MoviesRoute.swift                  ← enum de rutas (Hashable)
     MoviesModule.swift                 ← DependencyModule: registra los adapters reales
     MoviesError+ScreenError.swift      ← mapeo error de dominio → ScreenError (AppErrorConvertible)
     PopularMoviesViewModel.swift       ← orquestación sobre BaseViewModel
     PopularMoviesView.swift            ← SwiftUI dentro de ScreenContainer
     MovieRowView.swift                 ← fila del listado
-    MovieDetailViewModel.swift         ← orquestación del detalle (fase 8)
-    MovieDetailView.swift              ← detalle dentro de ScreenContainer (fase 8)
+    MovieDetailViewModel.swift         ← orquestación del detalle (slice de detalle)
+    MovieDetailView.swift              ← detalle dentro de ScreenContainer (slice de detalle)
 
   App/
     BaselineApp.swift                  ← TOCAR: composition root real (hoy pinta un Text)
@@ -152,6 +167,17 @@ Sources/
 
   Resources/
     Localizable.xcstrings              ← String Catalog ES+EN (sujeto a OQ-3 si hay que declararlo)
+
+> ⚠️ **Este árbol es el PLAN, y el slice 0 entregó otra cosa** (5ª pasada, H-9). Lo entregado:
+> `Tests/UnitTests/Movies/` —una carpeta por módulo, no por capa— con el fake canónico y el
+> catálogo **dentro** de `PopularMoviesRepositoryConformance.swift` y los JSON inline en vez de
+> en `Fixtures/`. Y en `Sources/`, `App/Movies/MoviesScreenStore.swift` **no aparece en este
+> árbol** pese a que OQ-13 dice que entra.
+>
+> No es cosmético: un agente que entre en frío al slice 1 leerá este árbol, creará
+> `Tests/UnitTests/Support/FakePopularMoviesRepository.swift` y **duplicará el fake canónico** —
+> justo el escenario que la suite de conformidad existe para evitar. **Decidir en el slice 1**:
+> o el árbol se actualiza a `Movies/`, o los archivos se mueven al plan. Hoy manda el árbol real.
 
 Tests/UnitTests/
   Domain/
@@ -192,7 +218,7 @@ tools/drift-ratchet.json          ← trinquete: SOLO lo mueve su script, y solo
 tools/mutation-ratchet.json       ← trinquete: SOLO lo mueve su script, y solo sube (§9)
 tools/layers.conf · tools/skill-matrix.conf · tools/verify.conf
 AGENTS.md · CLAUDE.md · docs/process/prds/_template.md
-.agents/skills/**                 ← meta-doc (§8). La fase 9 PROPONE un diff; no lo mergea sin OK
+.agents/skills/**                 ← meta-doc (§8). El slice de cierre PROPONE un diff; no lo mergea sin OK
 project.yml                       ← build settings = decisión de owner (lección 2026-08-08). Ver OQ-3
 Config/Info.plist                 ← la tubería del secreto ya está cableada; cambiarla es del owner
 Config/Secrets.xcconfig           ← gitignored. NUNCA se lee, se escribe ni se imprime su contenido
@@ -211,19 +237,55 @@ Tests/UnitTests/SmokeTests.swift  ← el smoke del cableado se queda como está
 > Cada fase es **mergeable por sí sola**, deja la base verde, y cabe en una sesión de agente que
 > arranca con **contexto 0**: su memoria son este PRD, las skills y lo ya mergeado. Ninguna fase
 > necesita "recordar" la sesión de otra. Orden canónico: contrato → lógica → orquestación/UI →
-> pulido. Ninguna fase toca red + dominio + UI a la vez.
+> pulido.
 
-| Fase | Entrega (mergeable) | Depende de | Skills obligatorias (§11) |
-|---|---|---|---|
-| **1** | **Contrato del dominio**: `Movie`, `MovieID`, `PageNumber`, `MoviePage`, `MoviesError`, puerto `PopularMoviesRepository`, `FakePopularMoviesRepository` y **la suite de conformidad** parametrizada. Sin red, sin UI. | — | `domain/SKILL.md` + `tdd-workflow.md` |
-| **2** | **Lógica pura de paginación** (`MoviesPaginationLogic`): acumular páginas, orden, unicidad de ids, "¿hay más?", guardas de re-entrada y de página fuera de orden. TDD puro contra el fake. | 1 | `architecture/SKILL.md` + `domain/SKILL.md` + `tdd-workflow.md` + `swift-estado-del-arte.md` |
-| **3** | **Adapter TMDB del listado** sobre `APIServiceProtocol`: `TMDBConfiguration` (fail-closed), requests, DTOs, mappers, mapeo de errores, fixtures capturados de la API real, y **la MISMA suite de conformidad de la fase 1 corriendo contra el adapter** vía `MockURLProtocol`. Sin UI. | 1 | `domain/SKILL.md` + `security/SKILL.md` |
-| **4** | **ViewModel del listado, primera carga** (sin paginación): `PopularMoviesViewModel` sobre `BaseViewModel` + `MoviesError+ScreenError` + las claves i18n de esos errores. Tests de orquestación con spy. Sin View. | 2, 3 | `architecture/SKILL.md` + `domain/SKILL.md` + `tdd-workflow.md` + `swift-estado-del-arte.md` |
-| **5** | **La app muestra películas de verdad**: `PopularMoviesView` dentro de `ScreenContainer`, `MovieRowView`, `MoviesRoute`, `MoviesModule` (DI), `AppCoordinatorView` y `BaselineApp` como composition root. Goldens 1, 2, 8. | 4 | `architecture/SKILL.md` + `architecture/platforms/ios.md` |
-| **6** | **Paginación por scroll**: `loadNextPageIfNeeded` en el ViewModel usando la lógica de la fase 2, `performActivity(style: .inline)`, rama de fallo de página N. Goldens 3, 4, 5. | 5 | `architecture/SKILL.md` + `domain/SKILL.md` + `tdd-workflow.md` + `swift-estado-del-arte.md` |
-| **7** | **Contrato + adapter del detalle**: `MovieDetail`, puerto `MovieDetailRepository`, fake, su suite de conformidad, adapter TMDB y fixtures (incluido el 404). Sin UI. | 3 | `domain/SKILL.md` + `security/SKILL.md` + `tdd-workflow.md` |
-| **8** | **Pantalla de detalle + navegación**: `MovieDetailViewModel`, `MovieDetailView` en `ScreenContainer`, ruta y `push` desde el listado. Golden 6. | 6, 7 | `architecture/SKILL.md` + `architecture/platforms/ios.md` + `domain/SKILL.md` + `tdd-workflow.md` + `swift-estado-del-arte.md` |
-| **9** | **Cierre del módulo de referencia**: i18n ES+EN completa con test de claves, accesibilidad mínima (Dynamic Type + labels de VoiceOver), primera medición del mutation score (sujeta a **OQ-9**), diff propuesto de las skills para que CITEN este módulo, y `current_execution_map.md` actualizado. Golden 7. | 8 | `architecture/SKILL.md` + `architecture/platforms/ios.md` |
+> 🔴 **La regla «ninguna fase toca red + dominio + UI a la vez» se ABANDONA para el slice 0, a
+> propósito y por decisión del owner (2026-08-28).**
+>
+> El slice 0 es un **walking skeleton**: cruza Domain + Data + Features + App de una vez, con
+> `Movie`, el puerto, el adapter TMDB, el ViewModel, la vista y el composition root. Rompe la
+> regla deliberadamente, porque **el cableado tiene que existir antes que la funcionalidad**: una
+> fase 1 que entregara solo el contrato del dominio no habría demostrado que los dos paquetes,
+> el composition root, la fase de pantalla y los gates encajan — y ese encaje es justo lo que
+> este módulo existe para demostrar.
+>
+> **A partir del slice 1 la regla vuelve a regir.** El troceo restante es por capacidad
+> observable, no por capa.
+>
+> Esto se declara aquí porque durante un tiempo el PRD dijo una cosa y la ejecución hizo otra: el
+> criterio de troceo es la decisión más *load-bearing* del documento, y un agente entrando en frío
+> a «la fase 2» habría buscado una fase 1 con `PageNumber` que nunca existió.
+
+**Troceo vigente:**
+
+| Slice | Entrega | Revisores obligatorios | Skills obligatorias (§11) | Estado |
+|---|---|---|---|---|
+| **0** | Vertical mínima end-to-end: listado de populares (primera página), sin paginación ni detalle ni pósters. Cruza todas las capas. | `design-reviewer` · `reviewer` · **`security-reviewer`** (toca la credencial) | `domain/SKILL.md` · `architecture/SKILL.md` · `architecture/platforms/ios.md` · `platforms/swift-estado-del-arte.md` · `process/references/tdd-workflow.md` · `security/SKILL.md` | escrito, pendiente de commit |
+| **1+** | Por capacidad observable (paginación, detalle, pósters, i18n), cada una respetando de nuevo el orden contrato → lógica → UI. | `reviewer` siempre; `security-reviewer` en todo slice que toque credencial, almacenamiento o authz | las que exija `tools/skill-matrix.conf` para los paths que toque — **el conf es la fuente, esta columna la vista** | por trocear |
+
+> ⚠️ **La columna de revisores existe por un fallo de esta misma reescritura.** El DoD anclaba
+> el `security-reviewer` a «las fases 3, 5 y 7», y al declarar no vigente la tabla de 9 fases esa
+> obligación se quedó sin ancla: el slice 0 **sí** toca la credencial y se iba a commitear sin
+> ese gate. Anclar una defensa a una numeración que puede cambiar es cómo una defensa
+> desaparece sin que nadie la retire (§14.4). Ahora va anclada al slice y a lo que el slice
+> toca. Ledger: `f-3236fb0`.
+
+> 🗑️ **La tabla de 9 fases se BORRÓ el 2026-08-28** (4ª pasada del design-review, B-1).
+>
+> No se conserva «como histórico», y esa es la decisión: mientras existía, seguía siendo la
+> **fuente** de una veintena de citas «fase N» repartidas por §5, §6, §9b, §12 y §13 — y cada
+> pasada del gate encontraba referencias nuevas apuntándola. Una de ellas se llevó por delante
+> un gate de seguridad real: el DoD ancló el `security-reviewer` a «las fases 3, 5 y 7» y, al
+> declarar la tabla no vigente, esa obligación se quedó sin ancla mientras el slice 0 —que sí
+> toca la credencial— iba camino de commitearse sin ella.
+>
+> Es el nivel 0 aplicado a un documento: en vez de detectar las citas inválidas una a una,
+> hacer que no puedan escribirse. El plan de 9 fases queda pegado entero en
+> el **Anexo** del dictamen `docs/process/reviews/2026-08-28-design-review-prd-0001.md`, donde
+> está pegada entera. *(La versión anterior de esta frase decía que quedaba «en el change log §17
+> y en el dictamen» y no estaba en ninguno de los dos: se borró afirmando que se preservaba, que
+> es §14.4 aplicado a un archivo. La 5ª pasada lo cazó y el anexo lo arregla.)* **El troceo
+> vigente es el de la tabla de slices de arriba**, y es el único al que se debe citar.
 
 **Gate común a TODAS las fases (ninguna se da por cerrada sin esto):**
 
@@ -235,6 +297,25 @@ bash tools/semgrep-scan.sh        # 0 hallazgos ERROR y 0 archivos con PartialPa
 ```
 y después: stagea → invoca al sub-agente `reviewer` → commitea en un comando aparte (§13).
 
+> ✅ **Autorizaciones del owner sobre rutas NO-TOUCH (registradas, §8 / H-7).** El DoD exige que
+> ninguna ruta NO-TOUCH aparezca en el diff sin permiso; estas lo tienen:
+>
+> | Ruta | Autorizado para | Cuándo |
+> |---|---|---|
+> | `tools/layers.conf` | añadir las reglas `*/Features/*` y borrar la `*/UI/*` huérfana | OQ-4, 2026-08-28 |
+> | `tools/check-layers-coverage.sh` (nuevo) | crear el detector de la lección del glob mudo | 2026-08-28 — §10 obliga a que toda lección tenga detector, así que el permiso es consecuencia de la regla, no una excepción a ella |
+> | `ci/run-gates.sh` | cablear ese detector como paso 4a | 2026-08-28 — un detector que no corre en ningún gate no es un detector |
+> | `tools/skill-matrix.conf` | añadir `*/Features/*` y `*/App/*` | **OQ-C, 2026-08-28** — sin ellos `Sources/App/**` se editaba sin ninguna lectura obligatoria, incluido el archivo que compone el header `Authorization` |
+> | `AGENTS.md` §11 (tabla) | las dos filas correspondientes | **OQ-C, 2026-08-28** — el conf y la tabla deben coincidir; lo verifica `check-skill-matrix-doc.sh` |
+> | `tools/tests/test_layers_coverage.sh` (nuevo) | crear los tests de FALSO POSITIVO del detector | **2026-08-28** — el `MANIFEST` de `test_meta_fp.sh` exige que todo detector tenga tests de FP; sin ellos no sabríamos si supera el ~10% que lo condenaría (§14.2) |
+> | `tools/tests/test_meta_fp.sh` | registrar el detector en el `MANIFEST` | **2026-08-28** — su propio comentario lo pide «en el MISMO cambio» |
+> | `tools/tests/test_e2e_gates_anillo3.sh` | añadir el detector a `_G9_INVENTARIO` | **2026-08-28** — sin ello el golden 9 corría el detector real contra un repo fake y tumbaba el escenario «todo en verde» |
+>
+> *(Esta tabla decía «lo que **no** está autorizado y por eso no se hizo: `skill-matrix.conf` y
+> `AGENTS.md`» **después** de que el owner autorizara ambos y de que el cambio estuviera hecho.
+> Corregido en la 6ª pasada, B-3: una tabla de autorizaciones que niega un permiso concedido
+> vuelve imposible de marcar la casilla del DoD que ella misma hace marcable.)*
+
 ## 6. Modelo de datos
 
 > No hay schema propio ni persistencia. El "modelo de datos" son **tres contratos**: la entidad de
@@ -243,7 +324,7 @@ y después: stagea → invoca al sub-agente `reviewer` → commitea en un comand
 ### 6.1 Quién depende de quién (la única figura que importa)
 
 ```
-        UI/Movies                     ← SwiftUI + AppFoundation. NO importa CoreNetworking.
+        Features/Movies                     ← SwiftUI + AppFoundation. NO importa CoreNetworking.
    PopularMoviesView ──▶ PopularMoviesViewModel ──┐
    MovieDetailView   ──▶ MovieDetailViewModel   ──┤ (por protocolo, inyectado por ctor)
                                                   │
@@ -253,7 +334,7 @@ y después: stagea → invoca al sub-agente `reviewer` → commitea en un comand
    MoviesPaginationLogic (lógica pura)
                     ▲
                     │ implementa
-        Data/TMDB   │                              ← CoreNetworking. NO importa SwiftUI.
+        Data/Movies │                              ← CoreNetworking. NO importa SwiftUI.
    TMDBPopularMoviesRepository ──▶ APIServiceProtocol ──▶ (red real o MockURLProtocol)
 ```
 
@@ -261,11 +342,15 @@ Reglas mecánicas que lo fijan (ya vivas en `tools/layers.conf`, no hay que escr
 
 - `*/Domain/*` no puede importar `SwiftUI|UIKit|AppKit|WatchKit`, ni
   `CoreNetworking|CoreNetworkingTestSupport|AppFoundation`.
-- `*/UI/*` no puede importar `CoreNetworking|CoreNetworkingTestSupport`.
+- `*/Features/*` no puede importar `CoreNetworking|CoreNetworkingTestSupport` (la UI no habla
+  HTTP), ni `Supabase|Firebase|CoreData|…` (no accede a datos directamente). Son las dos reglas
+  vivas en `tools/layers.conf`. La versión `*/UI/*` de la primera **se borró** el 2026-08-28:
+  tras el movimiento a `Features/` no casaba con ningún archivo, y conservarla «como red para
+  código heredado» era una racionalización — una regla que no mira nada no es una red.
 
 > **Consecuencia directa y no negociable:** `MoviesError` **NO puede** conformar
 > `AppErrorConvertible` dentro de `Domain/` — ese protocolo vive en `AppFoundation`. La conformidad
-> va en `Sources/UI/Movies/MoviesError+ScreenError.swift`, que es donde el error de negocio se
+> va en `Sources/Features/Movies/MoviesError+ScreenError.swift`, que es donde el error de negocio se
 > convierte en copy de pantalla. Esto no es un rodeo: es exactamente la separación que la regla
 > existe para forzar. El dominio publica **casos de error tipados** (no claves de texto: ver §6.4,
 > una clave `String` acabaría impresa en pantalla), la presentación publica
@@ -277,9 +362,9 @@ Reglas mecánicas que lo fijan (ya vivas en `tools/layers.conf`, no hay que escr
 |---|---|---|
 | `MovieID` | envoltorio sobre el id de TMDB, `Hashable`, `Sendable` | pasar una página donde va un id deja de compilar |
 | `PageNumber` | init **falible** con rango cerrado `1...500`; `static let first` | página 0 y página 501 dejan de ser representables (**OQ-8** fija el 500) |
-| `Movie` | `id: MovieID`, `title`, `overview`, `posterPath: String?`, `releaseDate`, `voteAverage`; `Equatable, Sendable` | value type inmutable; sin lógica ni dependencias |
+| `Movie` | **HOY**: `id: MovieID`, `title`, `posterPath: String?`, `voteAverage: Double?`; `Equatable, Sendable, Identifiable`. **PENDIENTE**: `overview` y `releaseDate`, que entran con el slice de detalle | value type inmutable; sin lógica ni dependencias. *(Esta fila publicaba `overview` y `releaseDate` como si existieran: §6.3 recibió el corte vigente/pendiente tras N2 y §6.2 no. 6ª pasada, H-9.)* |
 | `MoviePage` | `movies: [Movie]`, `page: PageNumber`, `nextPage: PageNumber?` | **`nextPage` en vez de `totalPages`**: el cálculo de "¿hay más?" ocurre UNA vez, en el adapter, y el ViewModel no puede equivocarse |
-| `MovieDetail` | superset de `Movie` con los campos del endpoint de detalle | fase 7 |
+| `MovieDetail` | superset de `Movie` con los campos del endpoint de detalle | slice de detalle |
 
 `releaseDate` llega como `String` (OQ-2 resuelta: decoder por defecto, sin
 `dateDecodingStrategy`). Junto con `voteAverage` se modela opcional —**OQ-7** (idioma) sigue
@@ -287,27 +372,74 @@ abierta— y **nunca** se ramifica sobre su texto.
 
 ### 6.3 Puertos
 
+> 🔴 **Regla dura, nacida de un fallo real (2026-08-28).** Un identificador de garantía
+> (`C-n`) es **inmutable**. Cuando una garantía cambia de significado, se **retira** y se
+> numera una nueva; **no se recicla la etiqueta**. Esta sección tuvo durante un tiempo un `C1`
+> («la página devuelta es la pedida») en el PRD y otro `C1` distinto («nunca devuelve `nil`»)
+> en el código publicado, con el mismo nombre y contenidos incompatibles. El identificador es
+> lo único estable de un contrato: si miente, todo lo que lo cita miente con él.
+
+#### Contrato VIGENTE — el publicado en `Sources/Domain/Movies/PopularMoviesRepository.swift`
+
 ```
 protocol PopularMoviesRepository: Sendable      // capability, no repo gigante (domain/SKILL.md)
-    popularMovies(page: PageNumber) async throws(MoviesError) -> MoviePage
+    popularMovies() async throws(MoviesError) -> [Movie]
+```
 
-protocol MovieDetailRepository: Sendable
+Sin paginación: el slice 0 entrega la primera página y nada más. Estas son las garantías que
+el puerto promete **hoy**, y las únicas que la suite de conformidad puede citar:
+
+| # | Garantía | Cómo se verifica |
+|---|---|---|
+| C1 | Nunca devuelve `nil`: o hay películas, o hay lista vacía, o lanza. | **Por tipo** (`[Movie]`). Sin test: no hay nada que verificar en runtime. |
+| ~~C2~~ | **RETIRADA el 2026-08-28** (OQ-17, ledger `f-f6b72573`). Prometía ids únicos, incompatible con C3: deduplicar es reordenar. **No-garantía explícita: el puerto NO deduplica.** La unicidad la impone el acumulador de paginación (T-P-6), que es quien tiene el estado donde un duplicado importa. | — |
+| C3 | El orden es el que dio la fuente. El puerto no reordena. | Suite de conformidad, fake + adapter real. |
+| C5 | No tiene efectos secundarios observables: llamarlo N veces no altera el estado del repositorio. | **Hoy no verificable — ver el recuadro de abajo.** |
+| C7 | Toda salida de error es un `MoviesError`; jamás escapa un `APIError`, un `URLError` ni un `DecodingError`. | **Por tipo** (`throws(MoviesError)`). El mapeo caso a caso sí se prueba, en la suite del adapter. |
+
+> ⚠️ **C5: la forma de la aserción, no solo su enunciado.** Se prohíbe expresamente
+> verificar C5 como *«llamar dos veces y comprobar que devuelve lo mismo»*. Con la fuente fija
+> por `MockURLProtocol`, esa aserción comprueba que el mock reproduce su respuesta registrada
+> —cosa que hace por construcción—, no que el repositorio carezca de estado. Es la forma que
+> el design-review ya rechazó en su bloqueante B2, y **se volvió a escribir igual** el
+> 2026-08-28 porque el PRD había renombrado la garantía sin prohibir la forma.
+>
+> **Forma admisible:** mutar el repositorio entre llamadas — pedir A, pedir B, volver a pedir
+> A y comprobar que B no alteró A. `popularMovies()` no toma parámetros, así que **hoy no hay
+> dos operaciones que distinguir y C5 no es observable**. Entra en la suite cuando exista el
+> primer cliente capaz de romperla: el decorador de caché de §16.2.
+
+#### Contrato PENDIENTE — el slice de paginación (aún no escrito)
+
+Numeración **propia** (`PG-n`), precisamente para no reciclar las etiquetas de arriba. Nada de
+esto existe todavía en el código: ni `PageNumber`, ni `MoviePage`, ni la firma con `page:`.
+
+```
+popularMovies(page: PageNumber) async throws(MoviesError) -> MoviePage    // PENDIENTE
+```
+
+| # | Garantía (pendiente) |
+|---|---|
+| PG1 | `popularMovies(page: p)` devuelve una `MoviePage` cuyo `page == p`. Nunca otra. |
+| PG2 | `nextPage` es `p + 1` mientras haya más páginas, y `nil` en la última. Nunca salta. |
+| PG3 | Pedir una página válida **más allá** de la última devuelve `MoviePage` vacía con `nextPage == nil`. **No lanza.** (Sujeto a **OQ-8**.) |
+
+#### Contrato PENDIENTE — el slice de detalle (aún no escrito)
+
+```
+protocol MovieDetailRepository: Sendable                                   // PENDIENTE
     movieDetail(id: MovieID) async throws(MoviesError) -> MovieDetail
 ```
 
-**Garantías que el puerto PROMETE** (y que por tanto la suite de conformidad verifica en TODAS sus
-implementaciones):
-
-| # | Garantía |
+| # | Garantía (pendiente) |
 |---|---|
-| C1 | `popularMovies(page: p)` devuelve una `MoviePage` cuyo `page == p`. Nunca otra. |
-| C2 | `nextPage` es `p + 1` mientras haya más páginas, y `nil` en la última. Nunca salta. |
-| C3 | El orden de `movies` es el que dio la fuente. El puerto no reordena. |
-| C4 | Pedir una página válida **más allá** de la última devuelve `MoviePage` vacía con `nextPage == nil`. **No lanza.** (Sujeto a **OQ-8**.) |
-| C5 | `popularMovies(page:)` **no tiene efectos secundarios observables**: llamarlo N veces no altera el estado del repositorio ni el resultado de pedir otra página. |
-| C6 | Un `MovieID` inexistente en `movieDetail` lanza `MoviesError.notFound`. Nunca devuelve un `MovieDetail` vacío ni `nil`. |
-| C7 | Toda salida de error es un `MoviesError`; jamás escapa un `APIError`, un `URLError` ni un `DecodingError`. |
-| C8 | Ningún valor lanzado ni devuelto contiene la clave de API. |
+| DT1 | Un `MovieID` inexistente lanza `MoviesError.notFound`. Nunca devuelve un `MovieDetail` vacío ni `nil`. |
+
+#### Garantía transversal
+
+| # | Garantía | Cómo se verifica |
+|---|---|---|
+| S1 | Ningún valor lanzado ni devuelto contiene la credencial de API. | Por construcción: ningún caso de `MoviesError` tiene valores asociados de tipo `String`. Más el test de copy (`MoviesErrorScreenErrorTests`) y T-A-12 (sentinela, pendiente). |
 
 > ⚠️ **No-garantía explícita:** el contenido de una página **no es estable entre llamadas**.
 > `popular` de TMDB se reordena según cambian los votos, así que pedir la página 1 dos veces puede
@@ -316,19 +448,98 @@ implementaciones):
 > `MockURLProtocol` reproduce la respuesta registrada**: habría verificado el mock, no el contrato.
 > Un puerto de referencia que promete algo que su única implementación real no cumple es el peor
 > artefacto que puede copiar un adoptante. Por esta inestabilidad existe el invariante de unicidad
-> de la fase 2 (T-P-6): las páginas se deduplican por `MovieID` al acumularlas.
+> del slice de paginación (T-P-6): las páginas se deduplican por `MovieID` al acumularlas.
 
 > **Cómo se añade caché mañana sin tocar ViewModels** (el diseño hay que dejarlo *posible*, no
 > construirlo — ver §8): un `CachedPopularMoviesRepository` que envuelve a otro
 > `PopularMoviesRepository`, se registra en `MoviesModule` en lugar del de red, y **pasa la misma
-> suite de conformidad**. Cero cambios en `Domain/`, cero en `UI/`.
+> suite de conformidad**. Cero cambios en `Domain/`, cero en `Features/`.
+
+> 🔴 **OQ-18 RESUELTA (2026-08-28, owner): `TransportError` va al SPM, partido en dos.**
+>
+> - **`TransportError` (enum) + `init(from: APIError)` → `CoreNetworking`**, junto a `APIError`.
+>   Es transporte puro (401/429/500/offline): ni dominio ni app.
+> - **`extension TransportError: AppErrorConvertible` (el copy) → se queda en la app**, en
+>   `Sources/Features/Movies/`.
+>
+> **Por qué partido y no entero en el paquete.** Los dos SPM son hoy **independientes**
+> (verificado en sus `Package.swift`: ninguno depende del otro). Conformar `AppErrorConvertible`
+> dentro de `CoreNetworking` obligaría a que el paquete de red dependiera de `AppFoundation`, y
+> se perdería poder usar el cliente HTTP sin arrastrar la arquitectura de UI. Y el copy es
+> **producto y está en español** (decisión de §6.4): un paquete compartido no puede llevar
+> «Sin conexión» dentro.
+>
+> **Por qué al SPM y no local a la app — el argumento decisivo.** La app es un **módulo único**:
+> con `TransportError` en `Sources/App/` o `Sources/Core/`, un tipo referenciado desde
+> `Sources/Domain/` **compila sin que ningún gate lo vea** (`check-layers.sh` trabaja sobre
+> imports, y dentro de un módulo no hay imports que mirar). Habría habido que declarar la
+> frontera como no vigilada. En el paquete llega por `import CoreNetworking`, y la regla
+> `*/Domain/* :: ^(CoreNetworking|…)$` que ya existe **lo cubre automáticamente**. Mover al SPM
+> convierte una frontera no verificable en verificable: sube del nivel «disciplina humana» al
+> nivel 6.
+>
+> **Restricción dura heredada del design-review (T-S-1):** `TransportError` **sin payloads
+> `String`**. Hoy S1 se sostiene *por construcción* —ningún caso de error lleva `String`
+> asociado— y un mensaje libre mataría ese argumento. Atención especial a
+> `APIError.custom(APIMessageError, …)`, que arrastra el mensaje del servidor: **no entra**.
+>
+> **Orden:** el slice 0 se commitea **primero**. No puede quedar bloqueado esperando a un
+> paquete publicado; publicar `CoreNetworking 0.1.4` y re-fijar `Package.resolved` es el paso
+> siguiente, ya con un punto de retorno en `main`.
+
+> 🔴 **OQ-20 RESUELTA (2026-08-28, owner): `TMDBConfiguration.swift` vive en `Data/Movies/`.**
+>
+> **El fallo:** tras mover a `Features/` (OQ-4) se actualizó `tools/layers.conf` y **no**
+> `tools/skill-matrix.conf`. Verificado con el matcher real del hook: el archivo que lee
+> `TMDBReadAccessToken` y compone `Authorization: Bearer` **no casaba con ningún glob de la
+> matriz**, así que podía editarse sin haber leído `security/SKILL.md`. Es la lección del glob
+> mudo cobrándose una segunda víctima el mismo día en que se escribió, en otro conf.
+>
+> **El arreglo:** `git mv Sources/App/Movies/TMDBConfiguration.swift Sources/Data/Movies/`.
+> Ahora casa `*/Data/*` → exige `domain/SKILL.md` + `security/SKILL.md`. Y es donde §5 de este
+> PRD ya decía que vivía: componer la configuración HTTP a partir del bundle es infraestructura,
+> no composition root. No hubo que tocar meta-doc ni el conf.
+>
+> **Lo que NO cierra esto.** Mover un archivo arregló *ese* archivo; la clase entera seguía sin
+> barrer. Pasados **los diez del slice 0** por el matcher real del hook (5ª pasada, H-6):
+>
+> | Archivo | Lecturas que exige la matriz |
+> |---|---|
+> | `App/BaselineApp.swift` | ⚠️ **NINGUNA** — y construye el `APIService` con el header `Authorization` y define `SinCredencialRepository` |
+> | `App/Movies/MoviesScreenStore.swift` | solo `*Screen*.swift` — **accidente léxico** («ScreenStore»); no exige `tdd-workflow.md` pese a ser el dueño de una identidad que un test verifica |
+> | `Features/Movies/MoviesError+ScreenError.swift` | solo `*Screen*.swift` — **accidente léxico** («ScreenError») |
+> | `Features/Movies/PopularMoviesView.swift` | `*View*.swift` ✅ |
+> | `Features/Movies/PopularMoviesViewModel.swift` | `*View*.swift` + `*ViewModel*.swift` ✅ |
+> | `Domain/Movies/*` (3) | `*/Domain/*` ✅ |
+> | `Data/Movies/*` (2) | `*/Data/*` ✅ |
+>
+> O sea: **`Sources/App/**` entero se edita sin ninguna lectura obligatoria**, y dos archivos
+> están cubiertos por una coincidencia de letras, no por una regla. Una cobertura accidental no
+> es cobertura: el día que alguien renombre `MoviesScreenStore` a `MoviesStore`, desaparece sin
+> que nadie lo note — que es la misma clase de fallo que la lección del glob mudo.
+>
+> ✅ **CERRADO el 2026-08-28 (OQ-C, autorizado por el owner).** `tools/skill-matrix.conf` gana
+> `*/Features/*` → `architecture` + `platforms/ios`, y `*/App/*` → `architecture` + **`security`**
+> (es composition root: arma el grafo y es por donde entran las credenciales al proceso). La
+> tabla §11 de `AGENTS.md` recibe las dos filas correspondientes.
+>
+> **La evidencia es la pasada con el matcher real del hook:** los **diez** archivos del slice 0
+> casan ahora con una regla, no con un accidente léxico. `BaselineApp.swift` pasa de cero
+> lecturas a exigir `security/SKILL.md`, que es lo que debía exigir desde el principio.
+>
+> *(Y NO vale citar aquí `check-skill-matrix-doc.sh` en `0/0`, como decía la primera versión de
+> este recuadro: ese script compara solo el **conjunto de referencias**, nunca los globs, y esas
+> tres skills ya estaban citadas antes de OQ-C. Habría dado `0/0` igual si me hubiera olvidado de
+> las filas de `AGENTS.md`. Una evidencia que no depende del cambio no es evidencia de ese
+> cambio. 6ª pasada, H-12.)*
 
 ### 6.4 Errores de dominio
 
 ```
 enum MoviesError: Error, Equatable, Sendable, CaseIterable   // CaseIterable: T-D-4 itera allCases
                                                              // en vez de una lista escrita a mano
-    offline · unauthorized · notFound · rateLimited · server · malformedResponse · cancelled · unknown
+    offline · unauthorized · notFound · rateLimited · server · malformedResponse
+    · connectionInterrupted · unknown
     // SIN `messageKey`. Ver la nota de abajo: una clave de runtime acaba impresa en pantalla.
 ```
 
@@ -340,7 +551,7 @@ enum MoviesError: Error, Equatable, Sendable, CaseIterable   // CaseIterable: T-
 > las claves construidas en runtime **no las extrae** el String Catalog, así que el test de
 > «toda clave existe en ES y EN» habría verificado un catálogo que nadie llenó automáticamente.
 >
-> **En su lugar:** `Sources/UI/Movies/MoviesError+ScreenError.swift` es un `switch` **exhaustivo
+> **En su lugar:** `Sources/Features/Movies/MoviesError+ScreenError.swift` es un `switch` **exhaustivo
 > sin `default:`** que devuelve `ScreenError(title:message:)` con literales
 > `LocalizedStringResource`. Se gana todo a la vez: el compilador (nivel 0) obliga a cubrir cada
 > caso nuevo del enum, los literales los extrae el catálogo solos, y se usa el init que sí
@@ -349,13 +560,55 @@ enum MoviesError: Error, Equatable, Sendable, CaseIterable   // CaseIterable: T-
 >
 > Esto **contradice `domain/SKILL.md` §Errores**, que prescribe `userMessageKey`. Es un
 > `<!-- FILL -->` heredado del template que este módulo debe corregir en vez de propagar: la
-> corrección de la skill va en la fase 9, con su propio diff.
+> corrección de la skill va en el slice de cierre, con su propio diff. **También contradice
+> `architecture/platforms/ios.md:84-85`** («error de dominio tipado con `userMessageKey` que la
+> View localiza»), que es **lectura obligatoria para editar cualquier `*View*.swift`** — o sea,
+> hoy un agente que toque una View lee la prescripción rechazada. Esa skill entra en el mismo
+> diff de corrección.
+
+> 🔴 **DECISIÓN (2026-08-28, owner): el idioma fuente de los literales es `es`.**
+>
+> No es una OQ más: es consecuencia obligada de B4, igual que `layers.conf` lo fue de OQ-4.
+> `ScreenError.init` hace `String(localized: title)` (`ViewPhase.swift:83-91`), así que **el
+> literal fuente ES la clave del String Catalog**. Los literales escritos son castellanos
+> (`"Sin conexión"`, `"Películas populares"`), y por tanto las claves del catálogo lo serán.
+>
+> **Consecuencias que hay que ejecutar, no solo anotar:**
+>
+> 1. **`developmentRegion: es` en `project.yml`** — se añade a la lista de **OQ-3** junto a
+>    `knownRegions`/`CFBundleLocalizations` y `SWIFT_EMIT_LOC_STRINGS`. Sin él, las otras tres no
+>    bastan: el `.xcstrings` registraría «Sin conexión» como cadena *inglesa*, porque el default
+>    de Xcode es `en`.
+> 2. **T-D-5 está mal escrito y hay que reformularlo.** Hoy pide que el render en `Locale("es")`
+>    *difiera* del literal fuente — imposible, si la fuente ya es `es`. Debe rendir en **`en`** y
+>    exigir que difiera. Y hace falta un segundo test de **cobertura de claves** (toda clave
+>    existe en ambos idiomas), no solo de diferencia.
+> 3. **Deuda declarada con fecha:** hasta que OQ-3 se autorice y el catálogo exista, hay copy de
+>    producto castellano en `Sources/` **sin ninguna tubería de i18n cableada**, y la app se
+>    renderiza en español en todos los locales, inglés incluido. Esto no es «pendiente de la fase
+>    9»: es un estado conocido del producto. Si se descubre a ojo en el simulador durante el
+>    golden 7, se habrá cazado en el nivel más caro (§14.1) algo que ya estaba escrito aquí.
 
 - `unauthorized` existe separado a propósito: es el síntoma de una clave ausente o inválida, y su
   copy **no menciona la clave** (§6 de AGENTS.md).
 - `malformedResponse` cubre decoding y forma inesperada. **No se degrada a lista vacía**: un JSON
   roto es un error, no un resultado vacío (fail-silent nunca).
-- `cancelled` tiene una regla propia, abajo.
+- `connectionInterrupted` —**no `cancelled`**— es el caso publicado, y la diferencia importa:
+  nombra la conexión cortada *por el transporte*, con la `Task` viva. Una cancelación **propia**
+  no llega hasta aquí.
+
+> ⚠️ **Lo que el adapter hace HOY ante una `Task` cancelada, que no es lo que este PRD
+> prescribía.** §6.5-Trampa A y OQ-14 decían que la cancelación propia se convierte en
+> `throw CancellationError()`. No se implementó así:
+> `TMDBPopularMoviesRepository.mapear` hace `Task.isCancelled ? .unknown : .connectionInterrupted`,
+> y quien protege la pantalla vuelve a ser el `guard !Task.isCancelled` **de `performLoad`**, en
+> el paquete — la misma capa donde el bloqueante B1 dijo que los tests del módulo no llegan.
+>
+> Las dos versiones no pueden convivir. **Decisión pendiente del owner:** o se implementa el
+> `CancellationError` que el PRD prescribe, o se acepta el `.unknown` actual y se reescriben
+> §6.5-A, OQ-14, T-VM-4 y T-A-9/9b en consecuencia. Con `.unknown`, un consumidor fuera de
+> `performLoad` —el decorador de caché de §16.2— mostraría «Algo ha ido mal» por una navegación
+> del propio usuario.
 
 ### 6.5 Las trampas del contrato (leerlas antes de escribir el ViewModel)
 
@@ -391,7 +644,7 @@ encendido para siempre—.
 **Trampa B — `performActivity` cancela la actividad en vuelo.**
 Un scroll rápido puede disparar dos veces la carga de la página siguiente; la segunda cancela la
 primera y el listado se queda sin crecer y **sin error visible**. **Regla del módulo:** el guard de
-re-entrada vive en la **lógica pura** (fase 2), no en el ViewModel: si ya hay una página en vuelo,
+re-entrada vive en la **lógica pura** (slice de paginación), no en el ViewModel: si ya hay una página en vuelo,
 la petición se ignora — no se lanza una segunda. Tiene test propio (T-VM-6).
 
 **Trampa C — el ViewModel se recrea vacío en cada navegación si nace dentro del closure de rutas.**
@@ -423,7 +676,7 @@ Se eligió esto y no un `@State` en una vista-pantalla envolvente por una razón
 de estilo: `@State` solo tiene identidad cuando SwiftUI **instala** la vista, y §8 prohíbe UI
 tests — así que un test unitario no podría distinguir la implementación correcta de la rota. Con la
 factoría, **T-VM-11** es un test corriente: dos invocaciones devuelven la misma instancia (`===`) y
-conservan las películas. Entra en la **fase 5** junto al closure, no en la 8: una fase que entrega
+conservan las películas. Entra en el **slice 0** junto al closure, no en el de detalle: un slice que entrega
 el closure sin el store mergea con el bug dentro.
 
 ### 6.6 Contrato de transporte (Data)
@@ -433,7 +686,7 @@ el closure sin el store mergea con el bug dentro.
 - Autenticación: **OQ-1**.
 - DTOs `Decodable` separados de las entidades, con **`CodingKeys` explícitas** (OQ-2 resuelta
   leyendo `APIService.swift:225`: `JSONDecoder()` sin configurar, sin conversión de snake_case).
-  Lo confirma igualmente el primer test de la fase 3 —decodificar un fixture real a través de
+  Lo confirma igualmente el primer test del adapter —decodificar un fixture real a través de
   `APIService` + `MockURLProtocol`—: si el paquete cambiara de decoder en una versión futura, ese
   test se pone rojo. **La lectura del código decide hoy; el test lo mantiene cierto mañana.**
 - `TMDBConfiguration` **falla cerrada**: sin `TMDBReadAccessToken` o con el placeholder
@@ -469,7 +722,7 @@ el closure sin el store mergea con el bug dentro.
 ### Edge cases
 
 - **Última página** → `nextPage == nil` → el scroll al final no dispara nada. Cero peticiones.
-- **Página vacía dentro del rango** → C4: página vacía con `nextPage == nil`; si es la primera,
+- **Página vacía dentro del rango** → **PG3** (etiqueta antes «C4», retirada en la renumeración de §6.3; pendiente, es del slice de paginación): página vacía con `nextPage == nil`; si es la primera,
   `.empty`; si es una posterior, **no se pierden** los elementos ya cargados y la fase sigue
   `.content`.
 - **Ids duplicados entre páginas.** `popular` de TMDB se reordena entre peticiones, así que una
@@ -482,10 +735,22 @@ el closure sin el store mergea con el bug dentro.
   error llega mapeado.
 - **Sin red** → `.offline` con botón de reintentar que vuelve a llamar al puerto.
 - **Doble `onAppear`** (vuelta desde el detalle, re-montaje de la vista) → no dispara una segunda
-  carga completa ni pierde el contenido. Ojo: la razón de que el contenido sobreviva es la
-  **Trampa C** (el ViewModel lo memoiza `MoviesScreenStore`, OQ-13), no la Trampa A —
-  `performLoad` ya protege el caso superseded por su cuenta.
-- **Rotación / Dynamic Type XXL** → el listado no rompe (fase 9).
+  carga completa ni pierde el contenido. La **Trampa C** (el ViewModel memoizado en
+  `MoviesScreenStore`, OQ-13) es **necesaria pero NO suficiente**, y decir que basta era el error:
+
+  > ⚠️ **Este escenario NO está protegido hoy** (4ª pasada, H-8; ledger `f-31902e86`).
+  > `PopularMoviesView` hace `.task { await viewModel.load().value }`, y `load()` llama a
+  > `performLoad` **incondicionalmente**. El store salva la *instancia*, no el *escenario*: al
+  > re-dispararse `.task`, `performLoad` pone `.loading(.fullScreen)` sobre contenido ya
+  > cargado y lanza otra petición. Y como `popular` de TMDB **se reordena entre llamadas**
+  > (no-garantía de §6.3), la lista vuelve barajada y la posición salta — que es justo lo que
+  > el golden 6 pide conservar.
+  >
+  > **Falta la idempotencia de la primera carga**, y su sitio natural es el ViewModel (un
+  > guard sobre la fase, testeable en la misma capa donde vive). Entra con el refactor a
+  > `enum Action` + `handle(_:)`, con su fila en §9b. Hasta entonces el golden 6 está
+  > **declarado como no cubierto**, no dado por bueno.
+- **Rotación / Dynamic Type XXL** → el listado no rompe (slice de cierre).
 
 ## 8. Anti-features (qué NO entra)
 
@@ -554,36 +819,76 @@ el closure sin el store mergea con el bug dentro.
 > 🔴 **rojo primero, siempre.** Cada fila entra como test que falla por la razón correcta antes de
 > existir su implementación (§5 de AGENTS.md).
 
-**Dominio — invariantes por tipo (fase 1). PBT = property-based.**
+**Dominio — slice 0 (lo que existe hoy).**
+
+| id | Qué fija | Tipo |
+|---|---|---|
+| T-D-4 | Dos casos distintos de `MoviesError` no comparten copy | exhaustivo |
+
+> ⚠️ **T-D-1, T-D-2 y T-D-3 se movieron al slice de paginación el 2026-08-28** (5ª pasada, B-3).
+> Estaban etiquetados «slice 0» y fijan `PageNumber` y `MoviePage` — **tipos que §6.3 declara
+> inexistentes** y que el árbol confirma que no existen. Como el DoD exige «cada fila de §9b
+> existe», el slice 0 no habría podido cerrar su propio DoD: pedía tests de tipos que aún no se
+> han escrito.
+>
+> Es la cita «fase N» reencarnada en «slice N»: al renombrar el troceo, el sweep siguió la
+> palabra y no comprobó si el contenido de la fila seguía siendo cierto. Renombrar no es
+> propagar.
+
+**Dominio — slice de paginación (PENDIENTE, los tipos aún no existen). PBT = property-based.**
 
 | id | Qué fija | Tipo |
 |---|---|---|
 | T-D-1 | `PageNumber(n)` existe ⟺ `n ∈ 1...500`; `rawValue == n` | PBT |
 | T-D-2 | `PageNumber(n) == nil` para `n ≤ 0` y `n > 500` | PBT |
 | T-D-3 | `MoviePage.nextPage` es `page+1` o `nil` — nunca otro valor | PBT |
-| T-D-4 | Dos casos distintos de `MoviesError` no comparten copy | exhaustivo |
-| T-D-5 | Por cada caso, su `ScreenError` renderizado en `Locale(identifier: "es")` **difiere del literal fuente** | exhaustivo (fase 9). No basta con que el `switch` sea exhaustivo —eso solo garantiza que hay literal, no que esté traducido—: sin este test, una cadena sin traducir cae al inglés y solo lo caza el golden 7 a ojo. **Muere si falta la traducción.** Depende de `SWIFT_EMIT_LOC_STRINGS` (OQ-3) |
+| T-D-6 | **Cobertura de claves**: toda clave que el String Catalog extrae existe en `es` **y** en `en` | exhaustivo — anunciado por §6.4 y sin fila hasta la 6ª pasada (H-5). Slice de i18n |
+| T-D-5 | Por cada caso, su `ScreenError` renderizado en `Locale(identifier: "en")` **difiere del literal fuente** (que es castellano desde que §6.4 fijó el idioma fuente en `es`; pedir que difiera en `es` era imposible). **Slice de i18n, no de paginación** — estaba en la tabla equivocada tras la partición de B-3 | | exhaustivo (slice de cierre). No basta con que el `switch` sea exhaustivo —eso solo garantiza que hay literal, no que esté traducido—: sin este test, una cadena sin traducir cae al inglés y solo lo caza el golden 7 a ojo. **Muere si falta la traducción.** Depende de `SWIFT_EMIT_LOC_STRINGS` (OQ-3) |
 
-**Conformidad puerto ↔ implementaciones (fases 1, 3, 7). UNA suite, dos ejecuciones.**
+**Conformidad puerto ↔ implementaciones (slice 0 y slice de detalle). UNA suite, dos ejecuciones.**
+
+> ⚠️ **Los ids de esta tabla siguen la regla dura de §6.3: un identificador no se recicla.**
+> Renumerada el 2026-08-28 porque publicaba `C1`, `C2`, `C4`, `C6` y `C8` con los significados
+> que §6.3 había retirado — la regla de inmutabilidad violada **dentro del mismo documento**, y
+> justo en la sección que el implementador copia. La regla aplica a **toda cita del PRD**, no
+> solo a §6.3.
+
+**Contrato VIGENTE — lo que la suite de conformidad verifica hoy** (`PopularMoviesRepositoryConformance.swift`):
 
 | id | Contrato | Fake | Adapter |
 |---|---|:--:|:--:|
-| T-C-1 | C1 — la página devuelta es la pedida | ✓ | ✓ |
-| T-C-2 | C2 — `nextPage` = `p+1` o `nil` en la última | ✓ | ✓ |
 | T-C-3 | C3 — el orden de la fuente se conserva | ✓ | ✓ |
-| T-C-4 | C4 — página válida más allá de la última: vacía, `nextPage nil`, no lanza | ✓ | ✓ |
-| T-C-5 | C5 — sin efectos secundarios observables: pedir la página 1 dos veces no altera lo que devuelve la página 2 | ✓ | ✓ |
 
-> Nota honesta sobre T-C-5: hoy **no puede fallar** en ninguna de las dos implementaciones (ni el
-> fake ni un adapter HTTP sin estado tienen estado que corromper), y el nivel 4 lo delatará como
-> test que no mata mutantes. Se mantiene porque su valor real llega con el **decorador de caché**
-> (§16.2), que sí tiene estado: es la garantía que ese decorador tendrá que seguir cumpliendo.
-> Se declara aquí para que nadie lo cuente como cobertura de hoy.
-| T-C-6 | C6 — id inexistente ⇒ `.notFound` | ✓ | ✓ |
-| T-C-7 | C7 — nunca escapa un `APIError`/`URLError`/`DecodingError` | ✓ | ✓ |
-| T-C-8 | C8 — ninguna salida contiene la clave sentinela | ✓ | ✓ |
+> **C1 y C7 no tienen fila, y es correcto:** los garantiza el tipo (`[Movie]` y
+> `throws(MoviesError)`). Un test para lo que el compilador impide es una aserción decorativa.
+>
+> **C5 tampoco tiene fila.** La versión anterior de esta tabla la daba por cubierta (`✓ | ✓`)
+> con la forma *«pedir la página 1 dos veces»* — que §6.3 ahora **prohíbe expresamente**, porque
+> con la fuente fija por `MockURLProtocol` verifica el mock y no el contrato. C5 no es observable
+> con un puerto sin parámetros; entra cuando exista el decorador de caché de §16.2.
+>
+> **T-C-2 se retiró** con C2 (OQ-17). Queda una sola fila, y eso es correcto: es la única
+> garantía de este puerto que hoy puede fallar. Tres de las cinco garantías originales resultaron
+> ser o bien imposibles por tipo (C1, C7), o bien no observables con el contrato actual (C5), o
+> bien incompatibles con otra (C2). Una suite con una aserción que muere ante un mutante vale más
+> que cinco que pasan siempre.
 
-**Lógica de paginación (fase 2) — el núcleo del TDD.**
+**Contrato PENDIENTE — paginación** (numeración propia, nada de esto existe todavía):
+
+| id | Contrato | Fake | Adapter |
+|---|---|:--:|:--:|
+| T-PG-1 | PG1 — la página devuelta es la pedida | pendiente | pendiente |
+| T-PG-2 | PG2 — `nextPage` = `p+1` o `nil` en la última | pendiente | pendiente |
+| T-PG-3 | PG3 — página válida más allá de la última: vacía, `nextPage nil`, no lanza | pendiente | pendiente |
+
+**Contrato PENDIENTE — detalle y transversal:**
+
+| id | Contrato | Fake | Adapter |
+|---|---|:--:|:--:|
+| T-DT-1 | DT1 — id inexistente ⇒ `.notFound` | pendiente | pendiente |
+| T-S-1 | S1 — ninguna salida contiene la credencial (sentinela) | pendiente | pendiente |
+
+**Lógica de paginación (slice de paginación) — el núcleo del TDD.**
 
 | id | Caso | Tipo |
 |---|---|---|
@@ -595,27 +900,44 @@ el closure sin el store mergea con el bug dentro.
 | T-P-6 | ids duplicados entre páginas ⇒ **unicidad + orden de primera aparición** | **PBT** |
 | T-P-7 | página fuera de orden (≠ la esperada) ⇒ se descarta, el estado no cambia | ejemplo |
 | T-P-8 | petición mientras hay una página en vuelo ⇒ se ignora (guard de re-entrada) | ejemplo |
+| T-P-11 | El caso de cancelación propia **no deja fase de error**: con la `Task` cancelada, la pantalla no pinta error ni se queda cargando | fila que OQ-14 daba por escrita y **no existía** hasta la 6ª pasada (H-6). Es la defensa que OQ-22 difiere: entra con el refactor (b) |
 | T-P-9 | fallo de página ⇒ el estado conserva lo cargado y **conserva la página a reintentar** | ejemplo |
 
-**Adapter / mapeo de errores (fases 3 y 7), con `MockURLProtocol` y fixtures reales.**
+**Adapter / mapeo de errores — slice 0 (existe hoy), con `MockURLProtocol`.**
+
+> ⚠️ **Partida el 2026-08-28** (6ª pasada, H-4). Era una sola tabla sin etiqueta de slice que
+> mezclaba lo escrito con lo pendiente: fijaba `MoviePage` y `page=<n>` (paginación, que no
+> existe), el 404 del detalle (que no existe), fixtures `popular_page1.json`… en archivos
+> separados (el JSON va **inline**, ver el recuadro de §5) y `.cancelled` — **un caso que
+> `MoviesError` no tiene**: el publicado es `connectionInterrupted` (§6.4).
+>
+> Es el mismo defecto que B-3 de la 5ª pasada, en la tabla de al lado y más larga: al renombrar
+> el troceo se etiquetaron las filas de dominio y nadie miró esta. Con el DoD pidiendo «cada fila
+> de §9b existe», el slice 0 volvía a no poder cerrar su propio DoD.
 
 | id | Entrada | Salida esperada |
 |---|---|---|
-| T-A-1 | `popular_page1.json`, 200 | `MoviePage` con los datos del fixture (fija de paso el decoder — **OQ-2**) |
 | T-A-2 | `URLError(.notConnectedToInternet)` | `.offline` |
 | T-A-3 | HTTP 401 | `.unauthorized` |
-| T-A-4 | HTTP 404 (detalle) | `.notFound` |
 | T-A-5 | HTTP 429 con `Retry-After` | `.rateLimited` |
 | T-A-6 | HTTP 500 | `.server` |
-| T-A-7 | `malformed_page.json` (falta `results`) | `.malformedResponse` |
+| T-A-7 | JSON sin `results` | `.malformedResponse` |
 | T-A-8 | `results` con tipos equivocados | `.malformedResponse` |
-| T-A-9 | `MockNetworkExchange(latency:)` + `Task` cancelado a media petición | `.cancelled` |
-| T-A-9b | `MockURLProtocol` devuelve `URLError(.cancelled)` **sin** cancelar la Task | el repositorio lanza el caso **recuperable**, NO `.cancelled` (OQ-14). **T-A-9 y T-A-9b son un par**: por separado ninguno mata los dos mutantes («siempre `.cancelled`» y «nunca `.cancelled`»); juntos, sí. Aquí vive la regla —en el adapter—, así que aquí va su test |
-| T-A-10 | la query/headers enviados incluyen `page=<n>` (assert sobre `recordedRequests`) | request correcta |
+| T-A-9b | `URLError(.cancelled)` **sin** cancelar la Task | `.connectionInterrupted` — es un fallo de transporte, no una cancelación nuestra |
+| T-A-9 | `Task` cancelada a media petición | el caso de cancelación propia. **Nombre pendiente de OQ-22**: hoy el adapter devuelve `.unknown` y quien protege la pantalla es el `guard` de `performLoad`; §6.5-A prescribe relanzar `CancellationError()` |
 | T-A-11 | config sin clave o con el placeholder | `.unauthorized`, sin imprimir el valor |
-| T-A-12 | **sentinela**: para CADA caso de error, ni `description`, ni `ScreenError.title/message`, ni la traza contienen la clave | 0 apariciones |
 
-**Orquestación — ViewModel (fases 4, 6, 8). Doble = fake+spy con eventos `enum`; el ORDEN es contrato.**
+**Adapter — PENDIENTE (paginación y detalle; los tipos y endpoints aún no existen).**
+
+| id | Entrada | Salida esperada |
+|---|---|---|
+| T-A-1 | `popular_page1.json`, 200 | `MoviePage` con los datos del fixture |
+| T-A-4 | HTTP 404 (detalle) | `.notFound` |
+| T-A-10 | la query/headers enviados incluyen `page=<n>` | request correcta |
+| T-A-12 | **sentinela** (T-S-1): para CADA caso de error, ni `description`, ni `ScreenError.title/message` contienen la credencial | **no escrito todavía** — es el gate que `f-3236fb0` exige y la razón de que el `security-reviewer` sea obligatorio en el slice 0 |
+
+
+**Orquestación — ViewModel (ViewModels del listado, paginación y detalle). Doble = fake+spy con eventos `enum`; el ORDEN es contrato.**
 
 | id | Caso | Aserción |
 |---|---|---|
@@ -623,7 +945,7 @@ el closure sin el store mergea con el bug dentro.
 | T-VM-2 | `onAppear` OK con 0 resultados | `phase == .empty` (**no** `.content` con lista vacía) |
 | T-VM-3 | `onAppear` con error | `phase == .error(...)`; el `retry` del `ScreenError` vuelve a llamar al puerto (2ª entrada en el spy) |
 | T-VM-4 | el fake lanza `MoviesError.cancelled` con la Task **viva** | `phase` **NO es `.loading`** (ni se queda colgada ni pinta error espurio). Aserción sobre el estado que de verdad puede romperse: la anterior (`== .error` con retry) es cierta para *cualquier* error que escape, con o sin la regla de OQ-14, porque `performLoad` siempre pasa un `retry` no-nil (`BaseViewModel.swift:204-213`) |
-| T-VM-11 | reevaluar el closure de rutas del `Coordinator` (simulando un `push`+`pop`) | el ViewModel **no** se reemplaza y las películas acumuladas siguen ahí (Trampa C). Muere si la factoría construye una instancia nueva en vez de devolver la memoizada |
+| T-VM-11 | dos invocaciones de `store.popular()` devuelven la MISMA instancia. **No dice «simulando push+pop»**: el slice 0 no tiene `Coordinator`, ni `CoordinatorView`, ni `MoviesRoute`, ni `DependencyModule` — `BaselineApp` monta un `NavigationStack` pelado. **Riesgo residual declarado:** cuando llegue el Coordinator, construir el ViewModel dentro del closure de rutas deja todos los tests en verde y reintroduce el bug de identidad; ese cableado no lo cubre nada todavía | el ViewModel **no** se reemplaza y las películas acumuladas siguen ahí (Trampa C). Muere si la factoría construye una instancia nueva en vez de devolver la memoizada |
 | T-VM-5 | scroll al final con `nextPage != nil` | el puerto se llama **exactamente una vez** con `nextPage` |
 | T-VM-6 | scroll al final llamado 5 veces seguidas | el puerto se llama **una** vez (Trampa B) |
 | T-VM-7 | scroll al final en la última página | el puerto **no se llama** |
@@ -646,17 +968,19 @@ A las 2-4 semanas:
 3. **El nivel 4 deja de estar mudo**: `tools/mutation-ratchet.json` con `measured: true` y un piso
    real (sujeto a **OQ-9**).
 4. **Las reglas propias de `layers.conf` dejan de ser prosa**: `check-layers.sh` evalúa archivos
-   reales en `Domain/` y `UI/` y pasa.
-5. **Cero findings de tier alto abiertos** contra el módulo en el ledger al cerrar la fase 9.
+   reales en `Domain/` y `Features/` y pasa.
+5. **Cero findings de tier alto abiertos** contra el módulo en el ledger al cerrar el slice de cierre.
 
 ## 11. Rollout
 
 - **Sin feature flag.** La app no está publicada; no hay usuarios que proteger ni tráfico que
   dividir. Un flag aquí sería ceremonia.
 - **Sin migración de datos** (no hay datos).
-- **El rollout ES el troceo de §5b**: cada fase se mergea sola y deja `main` verde. Las fases 1-4 y
-  7 no cambian nada visible; la 5 enciende la primera pantalla; la 6 la paginación; la 8 el
-  detalle.
+- **El rollout ES el troceo de §5b**: cada slice se mergea solo y deja `main` verde. El **slice 0**
+  enciende ya la primera pantalla (listado de populares) porque es un walking skeleton: el
+  cableado end-to-end antes que la funcionalidad. Los slices siguientes añaden capacidad
+  observable —paginación, detalle, pósters, i18n— cada uno respetando el orden contrato → lógica
+  → UI.
 - **Rollback** = revertir el commit de la fase. Como ninguna fase depende de estado externo ni deja
   migraciones, revertir es suficiente y no hay que deshacer nada más.
 - **Push solo con aprobación explícita del owner** (§7).
@@ -665,14 +989,14 @@ A las 2-4 semanas:
 
 | # | Riesgo | Mitigación |
 |---|---|---|
-| R1 | **La API que asume este PRD la leí de los clones locales de `spm-pro`, no de los tags publicados** (AppFoundation 0.1.1 / CoreNetworking 0.1.3). Pueden divergir. | **OQ-10**. La fase 3 es la primera que compila contra los paquetes de verdad; si diverge, Open Question + finding, **jamás un parche local** (§NO-TOUCH). |
+| R1 | **La API que asume este PRD la leí de los clones locales de `spm-pro`, no de los tags publicados** (AppFoundation 0.1.1 / CoreNetworking 0.1.3). Pueden divergir. | **OQ-10**. El slice 0 es el primero que compila contra los paquetes de verdad; si diverge, Open Question + finding, **jamás un parche local** (§NO-TOUCH). |
 | R2 | La clave de TMDB acaba en una URL logueada. `LoggingInterceptor` redacta **headers** sensibles; una query `?api_key=` viaja en la URL completa. | **OQ-1** + T-A-12 (sentinela) como test permanente en toda fase que toque `Data/`. |
 | R3 | `switch try await` deja el archivo **entero** sin escanear en el nivel 2, y nadie avisa. | Convención del proyecto (ligar el resultado a una variable antes del `switch`) + criterio de aceptación "0 `PartialParsing` en `Sources/`". |
 | R4 | Fallo silencioso de paginación: `performActivity` cancela la actividad en vuelo y el listado deja de crecer sin error. | Trampa B: guard de re-entrada en la lógica **pura** + T-P-8 y T-VM-6. |
 | R5 | Flash de pantalla de error por una cancelación de transporte (sesión invalidada), con la Task viva. | Trampa A + T-VM-4. El caso superseded lo cubre ya `performLoad`. |
 | R6 | `popular` de TMDB se reordena entre peticiones ⇒ filas duplicadas. | T-P-6 (property-based de unicidad y orden). |
 | R7 | El drift-ratchet está en `errors: 0, warns: 0` y `SWIFT_TREAT_WARNINGS_AS_ERRORS=YES`: **un solo warning nuevo bloquea**. | No es un riesgo a mitigar, es la condición de trabajo. Se declara aquí para que nadie lo descubra a mitad de fase. |
-| R8 | Contexto agotado a mitad de capa (el modo de fallo del PRD-monolito). | §5b: 9 fases, ninguna cruza red+dominio+UI. |
+| R8 | Contexto agotado a mitad de capa (el modo de fallo del PRD-monolito). | §5b: troceo por **slices** mergeables, cada uno con contrato y verificación propios. El slice 0 (walking skeleton) cruza todas las capas **a propósito y por una vez**; del 1 en adelante rige el orden contrato → lógica → UI. *(Esta mitigación decía «9 fases, ninguna cruza red+dominio+UI» — la regla que §5b abandonó. Corregida el 2026-08-28: una mitigación apoyada en una regla retirada es un riesgo sin mitigar que parece mitigado.)* |
 
 ## 13. Open Questions
 
@@ -716,51 +1040,75 @@ A las 2-4 semanas:
       —si hace falta— es trabajo del mapeo a la entidad, no del decoder.
       T-A-1 fija la elección contra un fixture real: si alguien pone `.convertFromSnakeCase` en la
       configuración, ese test se pone rojo.
-- [ ] **OQ-3 — 🔴 BLOQUEANTE fase 5. ¿Se autoriza tocar `project.yml`?** Queda **solo la parte
+- [ ] **OQ-3 — 🔴 BLOQUEANTE del slice de i18n. ¿Se autoriza tocar `project.yml`?** Queda **solo la parte
       (a)**: declarar `Sources/Resources/Localizable.xcstrings` para que el String Catalog entre al
       bundle. Son build settings ⇒ decisión de owner (lección [2026-08-08]).
       **Y dos cosas más en el mismo viaje**, que sin ellas el mecanismo de B4 no funciona:
       `knownRegions`/`CFBundleLocalizations` con `es` (sin eso el golden 7 falla aunque el
       `.xcstrings` esté perfecto) y `SWIFT_EMIT_LOC_STRINGS: YES` (sin eso el catálogo no extrae
-      nada, en silencio — ver OQ-15).
+      nada, en silencio — ver OQ-15). **Y una cuarta, añadida el 2026-08-28: `developmentRegion:
+      es`** — consecuencia de la decisión de idioma fuente en §6.4. Sin ella el default de Xcode
+      es `en` y el catálogo registraría los literales castellanos como cadenas inglesas, así que
+      las otras tres no bastan.
       *(La parte (b) —`package: AppFoundation` en el target de tests— **está resuelta**:
       `Tests/UnitTests/SmokeTests.swift:3` ya hace `import AppFoundation` y compila.)*
-- [ ] **OQ-4 — 🟠 BLOQUEANTE fase 4/5. ¿`Sources/UI/Movies/` o `Sources/Features/Movies/`?** Dos
-      docs internos se contradicen: `architecture/platforms/ios.md` prescribe `Features/<Nombre>/`,
-      y `tools/layers.conf` solo aplica la regla "la UI no habla HTTP" al glob `*/UI/*`. Con
-      `Features/`, **esa regla queda muda para todo el módulo de referencia** — justo el módulo que
-      existe para demostrar que las capas se respetan. Este PRD asume `UI/` provisionalmente; es
-      decisión del owner (y arrastra o bien renombrar aquí, o bien tocar `layers.conf`, que es
-      NO-TOUCH).
+- [x] **OQ-4 — RESUELTA por el owner (2026-08-28): `Sources/Features/Movies/`.** Dos docs internos
+      se contradecían: `architecture/platforms/ios.md` prescribe `Features/<Nombre>/`, y
+      `tools/layers.conf` solo aplicaba la regla "la UI no habla HTTP" al glob `*/UI/*`. Con
+      `Features/`, **esa regla quedaba muda para todo el módulo de referencia** — justo el módulo
+      que existe para demostrar que las capas se respetan.
+
+      **El riesgo era real y se verificó antes de mover**, no después: un `import CoreNetworking`
+      colocado bajo `Sources/Features/` daba `LAYERS_SUMMARY errors=0`. La regla no habría fallado
+      — habría dejado de existir, en silencio y con el gate en verde, que es el único pecado que
+      este harness no comete (§14.4).
+
+      **Cómo se cerró:** `Sources/UI/Movies/` → `Sources/Features/Movies/`, y `tools/layers.conf`
+      gana dos reglas `*/Features/*` (HTTP y persistencia) que replican las de `*/UI/*`. Se
+      confirmó con prueba de fuego que vuelven a cazar (`errors=1` con el probe, `errors=0` sin
+      él). Tocar `layers.conf` es NO-TOUCH y quedó **autorizado explícitamente por el owner** al
+      tomar esta decisión, porque era su consecuencia obligada: la regla viaja con la estructura,
+      o la estructura se lleva el gate por delante. `project.yml` **no** se tocó — declara
+      `- path: Sources`, así que OQ-3 no bloqueaba este movimiento.
 - [ ] **OQ-5 — 🟠 ¿Se muestran pósters, y cómo?** Tres tensiones a la vez: (a) AGENTS.md §3 dice
       "todo acceso HTTP pasa por `APIService` … nada de `URLSession` suelto", y `AsyncImage` **es**
-      `URLSession` por dentro; (b) `layers.conf` prohíbe `import CoreNetworking` en `*/UI/*`, así
-      que la vista no puede descargar por su cuenta ni con el paquete; (c) TMDB devuelve
+      `URLSession` por dentro; (b) **`layers.conf` NO puede arbitrar esto** — corregido el
+      2026-08-28: `check-layers.sh` trabaja sobre el grafo de **imports**, y `AsyncImage` solo
+      necesita `SwiftUI` (que una View importa obligatoriamente) mientras `URLSession` solo
+      necesita `Foundation`. El regex prohibido es `^(CoreNetworking|CoreNetworkingTestSupport)$`
+      y no puede ampliarse a `Foundation` sin romper el dominio entero. O sea: la regla de capa
+      impide que la vista use **nuestro** cliente HTTP, y nada más. *(La versión anterior de esta
+      OQ afirmaba que «la vista no puede descargar por su cuenta ni con el paquete»; la primera
+      mitad era falsa.)* **Pregunta añadida:** si el owner elige `AsyncImage`, ¿se autoriza una
+      regla Semgrep (nivel 2) en `tools/semgrep/rules/swift.yaml` que acote `URLSession(` y
+      `AsyncImage` bajo `Sources/Features/` a la excepción declarada? Sin ella, «la UI no habla
+      HTTP» queda como una regla que solo cubre el caso que nadie iba a cometer. Ese fichero es
+      NO-TOUCH: es permiso de owner, exactamente como lo fue `layers.conf` en OQ-4; (c) TMDB devuelve
       `poster_path` relativo — la URL completa necesita la base de imágenes y un tamaño, que
       oficialmente salen del endpoint `/3/configuration`. Opciones: `AsyncImage` con excepción
       declarada en `docs/process/decisions/`; un puerto `MoviePosterLoading` con adapter sobre
       `APIService.download`; o listado sin imagen. Y si hay imagen: ¿base y tamaño fijos o desde
       `/configuration`? *(Si la respuesta es "puerto propio", esto es **una fase más**, no un
       añadido a la 5.)*
-- [ ] **OQ-6 — 🟠 BLOQUEANTE fase 7. ¿El detalle re-consulta `/3/movie/{id}` o reutiliza la entidad
+- [ ] **OQ-6 — 🟠 BLOQUEANTE del slice de detalle. ¿El detalle re-consulta `/3/movie/{id}` o reutiliza la entidad
       del listado?** Reutilizar ahorra un puerto, un adapter y dos fases; consultar ejercita una
       segunda ruta completa (request, decoding, 404, error en contexto de detalle), que es
       exactamente lo que un módulo de referencia debe demostrar. Este PRD asume **re-consultar**
-      (fases 7-8) porque el owner declaró que el valor está en cruzar capas; confírmalo o córtalo.
+      (el slice de detalle) porque el owner declaró que el valor está en cruzar capas; confírmalo o córtalo.
 - [ ] **OQ-7 — 🟡 ¿Qué `language` se envía a TMDB, y qué hacemos con los campos vacíos?** La app es
       ES+EN. ¿Derivamos `language` del locale del dispositivo (`es-ES`/`en-US`)? TMDB devuelve con
       frecuencia `overview` **vacío** en español: ¿fallback a inglés (segunda petición), placeholder
       localizado, u ocultar el campo? Nota: derivar de un identificador de locale es legítimo;
       ramificar sobre el texto devuelto **no lo es** (§3).
-- [ ] **OQ-8 — 🟡 BLOQUEANTE fase 1 (fija un tipo). Confirmar contra la API real dos cosas:**
+- [ ] **OQ-8 — 🟡 BLOQUEANTE del slice de paginación (fija un tipo). Confirmar contra la API real dos cosas:**
       (a) que `page > 500` es un error del servidor —lo que justifica que `PageNumber` cierre el
       rango en 500—, y (b) que una página válida **más allá** de `total_pages` devuelve 200 con
-      `results: []` en vez de un error. La garantía C4 del puerto depende de (b). *Resolución:
+      `results: []` en vez de un error. La garantía **PG3** (antes «C4», retirada esa etiqueta con la renumeración de §6.3) depende de (b). *Resolución:
       un `curl` manual del owner cuya respuesta se congela como `popular_beyond_last_page.json`
       — la evidencia es el fixture, no una afirmación.*
 - [ ] **OQ-9 — 🟠 El nivel 4 está MUDO y esta es la ocasión de estrenarlo.**
       `tools/mutation-ratchet.json` dice `"measured": false` y **no existe `muter.conf.yml`** en la
-      raíz, así que `mutation-score.sh` no tiene runner. ¿Se autoriza crear esa config en la fase 9
+      raíz, así que `mutation-score.sh` no tiene runner. ¿Se autoriza crear esa config en el slice de cierre
       para fijar el primer piso con este módulo? Si la respuesta es no, el §15 **no puede** incluir
       el gate de mutación y hay que decirlo en vez de fingirlo.
 - [x] **OQ-10 — RESUELTA (2026-08-28). El clon local y lo publicado son idénticos.** Se clonaron
@@ -790,8 +1138,8 @@ A las 2-4 semanas:
       fallar**, la misma patología que motivó B1. Con la factoría, T-VM-11 es un test unitario
       corriente: dos invocaciones de `store.popular()` devuelven la **misma instancia** (`===`) y
       conservan las películas acumuladas. Muere si la factoría construye una nueva.
-      **Entregable:** `MoviesScreenStore.swift` entra en §5 y en la **fase 5** (no en la 8): si la
-      fase 5 entrega el closure sin él, mergea con el bug de identidad dentro, y cada fase tiene
+      **Entregable:** `MoviesScreenStore.swift` entra en §5 y en el **slice 0** (no en el de
+      detalle): si el slice 0 entrega el closure sin él, mergea con el bug de identidad dentro, y cada slice tiene
       que ser mergeable con la base verde.
 - [x] **OQ-14 — RESUELTA por el owner (2026-08-28). El adapter distingue quién canceló.**
       Si `Task.isCancelled` es `false`, la cancelación **no la pidió nadie de nuestro lado** (sesión
@@ -818,6 +1166,43 @@ A las 2-4 semanas:
       es un **banner**; la alternativa es una fila de "reintentar" al final del listado (más
       descubrible, más código). Y en cualquier caso: al fallar, ¿se conserva la página pendiente
       para reintentar la MISMA (asumido en T-P-9) o se reintenta desde `nextPage` del último éxito?
+
+### OQ-16 a OQ-21 — resueltas o abiertas fuera de esta lista (índice, 5ª pasada B-4)
+
+> Estas Open Questions se plantearon y algunas se resolvieron **en recuadros dentro de §5b, §6.3
+> y §6.4**, y se citan desde `current_execution_map.md` y desde el ledger. Ninguna tenía entrada
+> aquí, así que un lector de §13 —que es el índice de lo que bloquea el `Approved`— **no podía
+> encontrarlas**. Es la regla de identificadores inmutables de §6.3 aplicada a las OQ: un id
+> citado desde otro documento tiene que resolver contra este índice.
+
+| # | Qué preguntaba | Estado | Dónde vive la respuesta |
+|---|---|---|---|
+| **OQ-16** | ¿El slice 0 pasa por `security-reviewer` antes del commit? Toca la credencial y T-S-1 no existe. | ✅ **decidida: SÍ, obligatorio** · 🟠 **pendiente de EJECUTAR** — el gate no ha corrido y `f-3236fb0` sigue abierto/high | columna «revisores» de §5b · DoD §15 · ledger `f-3236fb0` |
+| **OQ-17** | ¿C2 (ids únicos) es garantía del puerto, si contradice a C3? | ✅ **RETIRADA** del contrato: el puerto no deduplica | §6.3 · ledger `f-f6b72573` (cerrado) |
+| **OQ-18** | ¿Dónde vive `TransportError`, sabiendo que la app es un módulo único y ningún gate vigilaría la frontera? | ✅ **`CoreNetworking`**, con el copy en la app | recuadro antes de §6.4 |
+| **OQ-19** | ¿La suite de conformidad se refuerza o se declara andamiaje? | ✅ **Reforzada** a igualdad completa de `[Movie]` | `PopularMoviesRepositoryConformance.swift` |
+| **OQ-20** | `TMDBConfiguration.swift` no exigía `security/SKILL.md`. ¿Mover o ampliar el conf? | ✅ **Movido** a `Data/Movies/` | recuadro antes de §6.4 · ledger |
+| **OQ-21** | ¿Chequeo inverso de cobertura (carpeta → regla) y exención por línea en `check-layers-coverage.sh`? | 🟠 **ABIERTA** — no bloquea el slice 0 | ledger |
+
+**Y una que estaba invisible por no tener número** — la única decisión bloqueante que un lector
+de §13 no podía encontrar:
+
+- [ ] **OQ-22 — 🟠 ¿El adapter relanza `CancellationError()` o se acepta el `.unknown` actual?**
+      §6.5-Trampa A y OQ-14 prescriben lo primero, para que la protección viva en una capa que
+      los tests del módulo alcanzan (bloqueante B1 del design-review original).
+      `TMDBPopularMoviesRepository.mapear` hace `Task.isCancelled ? .unknown : .connectionInterrupted`,
+      y quien protege la pantalla es el `guard` de `performLoad`, en AppFoundation. El código y
+      sus comentarios ya son honestos sobre esto, así que **no bloquea el slice 0**; sí bloquea
+      el slice de paginación y el decorador de caché de §16.2, donde un consumidor fuera de
+      `performLoad` mostraría «Algo ha ido mal» por una navegación del propio usuario.
+      Ledger `f-52ef5f6d`.
+
+      > ⏭️ **DIFERIDA por el owner (2026-08-28) al refactor (b)** —`enum Action` + `handle(_:)`—,
+      > donde se decide junto con la idempotencia de la primera carga, que vive en la misma
+      > capa. **No bloquea el `Approved` ni el commit del slice 0**, por la razón de arriba: el
+      > código y sus comentarios ya dicen lo que hacen, así que lo que queda es una decisión de
+      > diseño pendiente y declarada, no una divergencia oculta.
+
 
 ## 14. Mockups / referencias
 
@@ -848,7 +1233,7 @@ A las 2-4 semanas:
 - [ ] `bash tools/verify-run.sh` → **exit 0** (build + suite completa, evidencia firmada contra el
       diff staged)
 - [ ] `bash tools/check-drift.sh` → **0 errores y 0 warnings nuevos** (el ratchet está en 0/0)
-- [ ] `bash tools/check-layers.sh` → **exit 0**, y evalúa archivos reales en `Domain/` y `UI/` — **no en `Data/`**: `layers.conf` no tiene ninguna regla `*/Data/*`, así que esa carpeta no la mira nadie (pedirla es NO-TOUCH: OQ nueva si se quiere)
+- [ ] `bash tools/check-layers.sh` → **exit 0**, y evalúa archivos reales en `Domain/` y `Features/` — **no en `Data/`**: `layers.conf` no tiene ninguna regla `*/Data/*`, así que esa carpeta no la mira nadie (pedirla es NO-TOUCH: OQ nueva si se quiere)
 - [ ] `bash tools/semgrep-scan.sh` → **exit 0** y **0 archivos con `PartialParsing` bajo `Sources/`**
 - [ ] `bash tools/lesson-detector-link.sh` → exit 0
 - [ ] `bash tools/check-execution-map.sh` → exit 0 (mapa actualizado en el **mismo** commit)
@@ -867,11 +1252,19 @@ A las 2-4 semanas:
       de error, recuperación y límite; los tests de conformidad corren **contra el fake y contra el
       adapter**
 - [ ] Ningún archivo supera el hard limit de §4 (400 líneas / 60 por función / 250 el ViewModel)
-- [ ] `reviewer` GREEN o AMBER atendido en cada fase · `security-reviewer` en las fases 3, 5 y 7
+- [ ] `reviewer` GREEN o AMBER atendido en cada slice · `security-reviewer` en **todo slice que toque credencial, almacenamiento o authz** (criterio, no número de fase: las fases 3/5/7 a las que esto se ancló antes dejaron de existir con el troceo de §5b, y el slice 0 **sí** toca la credencial). Ver la columna «revisores obligatorios» de §5b
       (tocan la clave)
 - [ ] `design-reviewer` pasado sobre este PRD **antes** del primer commit de código (§12 — gate
       distinto del `Approved` del owner)
-- [ ] Ninguna ruta del §NO-TOUCH aparece en el diff de ninguna fase
+- [ ] Ninguna ruta del §NO-TOUCH aparece en el diff **sin autorización registrada**. **No la marques contra una lista escrita a mano — esa cifra ya se quedó obsoleta dos veces en este mismo PRD.** Sácala del diff:
+
+  ```bash
+  git diff --cached --name-only \
+    | grep -E '^(tools/|ci/|AGENTS\.md|lefthook\.yml|\.agents/skills/)' \
+    | grep -v '^tools/findings/ledger\.jsonl$'
+  ```
+
+  (`tools/findings/ledger.jsonl` se excluye porque escribir ahí es el mecanismo sancionado de §10, no una excepción NO-TOUCH.) Toda ruta que salga debe tener fila en la tabla de autorizaciones de §5b. Al cerrar el slice 0 salían **ocho**, y las ocho constan. Sin esa tabla esta casilla sería imposible de marcar en verdad
 - [ ] Sin secretos en código, logs ni mensajes de error; T-A-12 (sentinela) en verde
 - [ ] Docs actualizados en el mismo PR: `current_execution_map.md` y el **diff propuesto** de las
       skills (que el owner aprueba aparte)
@@ -884,7 +1277,7 @@ A las 2-4 semanas:
    antes de congelar.
 2. **El decorador de caché.** El puerto queda preparado (§6.3); escribirlo será un PRD corto:
    un `CachedPopularMoviesRepository`, su registro en `MoviesModule` y la misma suite de
-   conformidad. Cero cambios en `Domain/` y `UI/` — y si hicieran falta, el diseño de este PRD
+   conformidad. Cero cambios en `Domain/` y `Features/` — y si hicieran falta, el diseño de este PRD
    estaba mal.
 3. **Snapshot tests** de las dos pantallas (fuera de scope aquí, §8): decisión de herramienta +
    coste de mantenimiento.
@@ -899,10 +1292,20 @@ A las 2-4 semanas:
 |---|---|---|
 | 2026-08-27 | Draft inicial: contratos por capa, matriz de tests, 9 fases, 12 Open Questions | prd-writer |
 | 2026-08-28 | Cierre de los 4 bloqueantes del design-review + OQ-1/2/3(b)/10/11/13/14 resueltas; T-VM-4 recolocado al adapter (T-A-9b) y regla de capa añadida a §9b | owner + reviewer |
+| 2026-08-28 | **OQ-4 resuelta**: `Sources/UI/Movies/` → `Sources/Features/Movies/`. Arrastró añadir las reglas `*/Features/*` a `tools/layers.conf` — sin ellas la regla «la UI no habla HTTP» quedaba muda para todo el módulo | owner |
+| 2026-08-28 | **Slice 0 escrito** (Domain → Data → Features → App + tests). `MoviesError: AppErrorConvertible` y la suite de conformidad del puerto, que faltaban | reviewer |
+| 2026-08-28 | Pasadas 2-5 del design-review (RED ×4). §5b reescrita por slices y **tabla de 9 fases borrada** (su copia vive en el Anexo del dictamen); §6.3 republicada con ids inmutables y bloques vigente/pendiente; §9b renumerada (`T-PG-*`, `T-DT-*`, `T-S-1`) | design-reviewer |
+| 2026-08-28 | **OQ-17**: C2 retirada del contrato (el puerto no deduplica). **OQ-18**: `TransportError` va a `CoreNetworking`, el copy se queda en la app. **OQ-19**: suite reforzada a igualdad completa de `[Movie]`. **OQ-20**: `TMDBConfiguration.swift` → `Data/Movies/`, para que exija `security/SKILL.md` | owner |
+| 2026-08-28 | Idioma fuente de los literales: **`es`**, con `developmentRegion` añadido a OQ-3 | owner |
+| 2026-08-28 | Detector nuevo `tools/check-layers-coverage.sh` (control negativo de `layers.conf`) + paso 4a de `ci/run-gates.sh`, y dos lecciones con `Detector:` en `lessons_learned.md` | owner (NO-TOUCH autorizado, §5b) |
+| 2026-08-28 | **OQ-C**: `*/Features/*` y `*/App/*` añadidos a `tools/skill-matrix.conf` y a la tabla §11 de `AGENTS.md`. `BaselineApp.swift` pasa de cero lecturas obligatorias a exigir `security/SKILL.md`. **OQ-22** (cancelación) diferida al refactor (b) | owner |
+| 2026-08-28 | Pasada 6: el puerto **seguía publicando C2** en su doc-comment y afirmaba que la suite verifica cinco garantías cuando verifica una. Corregido en `PopularMoviesRepository.swift`, que ahora declara **quién verifica cada garantía** | design-reviewer |
+| 2026-08-28 | `security-reviewer` 🟡 **AMBER** sobre la cadena completa de la credencial: sin secretos en el diff, token en header y no en query, fail-closed confirmado, sin interceptors cableados. `f-3236fb0` cerrado | security-reviewer |
+| **2026-08-28** | **`Status: Draft → Approved`** | **owner** |
 
 ## 18. Gaps detectados (llenar post-ship)
 
-*(Se rellena al cerrar la fase 9. Alimenta `docs/process/lessons_learned.md` —toda entrada exige
+*(Se rellena al cerrar el slice de cierre. Alimenta `docs/process/lessons_learned.md` —toda entrada exige
 `Detector:`— y `tools/findings/`.)*
 
 Semillas ya identificadas al escribir el PRD, para no perderlas:

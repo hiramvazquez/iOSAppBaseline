@@ -27,6 +27,22 @@ comportamiento. Si el juicio no es mecanizable, decláralo sin fingir cobertura:
 - **Detector:** n/a-manual — <por qué no se puede automatizar>
 ```
 
+## Lecciones vivas
+
+### [2026-08-28] Renombrar una carpeta apagó una regla de capa, y el gate siguió en verde
+- **Qué pasó:** al resolver OQ-4 se movió `Sources/UI/Movies/` → `Sources/Features/Movies/`. La regla de `layers.conf` «la UI no habla HTTP» estaba escrita como glob `*/UI/*`, así que dejó de casar con ningún archivo. Un `import CoreNetworking` bajo la ruta nueva pasaba con `LAYERS_SUMMARY errors=0`. La regla no falló: dejó de existir, en silencio.
+- **Causa raíz:** el aislamiento de capas de este proyecto es **convención de rutas + un glob**, no tipos ni targets separados. Un glob es un acoplamiento invisible entre la estructura de carpetas y el gate: mover la carpeta rompe el gate sin tocar el gate. Y `check-layers.sh` solo sabe responder «¿alguien importa lo que no debe?», nunca «¿alguna regla dejó de mirar?».
+- **Regla:** mover o renombrar cualquier carpeta bajo `Sources/` obliga a revisar **todo conf que enrute por globs de ruta, en el mismo commit** — `tools/layers.conf`, `tools/skill-matrix.conf` y los `paths` de las reglas Semgrep. Acotarla a `layers.conf` fue justo el error: el mismo día en que se escribió esta lección, el sweep se hizo en `layers.conf` y no en `skill-matrix.conf`, y el archivo que lee la credencial de TMDB quedó sin exigir `security/SKILL.md` (4ª pasada del design-review, B-4). La regla viaja con la estructura, o la estructura se lleva el gate por delante. Y una regla que no casa con nada **se borra**, no se conserva «como red para código heredado» — eso es un gate apagado con buena conciencia.
+- **Detector:** `tools/check-layers-coverage.sh` — falla (exit 1) si alguna regla propia de `layers.conf` no casa con ningún archivo, y sale **3** si no encuentra el marcador del bloque (no pude mirar ≠ todo correcto: era su propio modo de fallo). Verificado con prueba de fuego en los tres escenarios. **Cobertura parcial declarada:** hoy solo vigila `layers.conf`; para `skill-matrix.conf` y los `paths` de Semgrep la regla es manual — extender el detector a esos confs está en el ledger.
+- **Área:** `tools/layers.conf` · `Sources/**`
+
+### [2026-08-28] Un identificador de garantía se recicló, y el contrato divergió sin que nadie lo viera
+- **Qué pasó:** el PRD 0001 definía `C1` como «la página devuelta es la pedida» y `C2` como «`nextPage` es `p+1`». El código publicado usaba las mismas etiquetas para cosas distintas: `C1` = «nunca devuelve `nil`», `C2` = «los ids son únicos». Dos significados vivos con el mismo nombre. Al arreglarlo en §6.3 se dejó §9b publicando todavía los viejos: la regla nueva quedó violada dentro del mismo documento, 300 líneas más abajo, en la sección que el implementador copia.
+- **Causa raíz:** un identificador de contrato es lo único estable que tienen las citas cruzadas. Cuando cambia de significado en vez de retirarse, cada cita que lo menciona pasa a mentir, y no hay forma de saber cuál se refiere a qué versión.
+- **Regla:** un id de garantía (`C-n`, `T-x-n`) es **inmutable**. Cuando una garantía cambia de significado se **retira** y se numera una nueva; nunca se recicla la etiqueta. Y la regla aplica a **toda cita del documento**, no solo a la sección donde se descubrió: un arreglo escrito como recuadro en el punto del hallazgo, sin propagar, deja el documento contradiciéndose a sí mismo — que es peor que el hallazgo original.
+- **Detector:** n/a-manual — lo aplica el checklist del `design-reviewer` (gate del CÓMO, §12), que fue quien lo cazó en dos pasadas consecutivas. Un detector por grep necesitaría entender qué significa cada id en cada sección, y contar etiquetas sin parsear su semántica produciría ruido; un detector ruidoso se descarta entero (§14.2).
+- **Área:** `docs/process/prds/**`
+
 ## Plantilla de entrada
 
 ```
@@ -37,8 +53,6 @@ comportamiento. Si el juicio no es mecanizable, decláralo sin fingir cobertura:
 - **Detector:** <ruta del check que lo previene, o `n/a-manual — razón`>
 - **Área:** <path o módulo>
 ```
-
----
 
 ## Lecciones del harness
 

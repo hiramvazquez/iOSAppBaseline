@@ -151,6 +151,7 @@ tools/tests/run-tests.sh
 tools/secret-scan.sh
 tools/semgrep-scan.sh
 tools/check-layers.sh
+tools/check-layers-coverage.sh
 tools/check-source-sets.sh
 tools/drift-ratchet.sh
 tools/verify-run.sh

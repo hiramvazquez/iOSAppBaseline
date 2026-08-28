@@ -118,6 +118,17 @@ else
   echo "(tools/check-layers.sh ausente — saltado)"
 fi
 
+# 4a) El control NEGATIVO del anterior. `check-layers.sh` responde «¿alguien
+#     importa lo que no debe?»; este responde «¿alguna regla dejó de mirar?».
+#     Sin él, renombrar una carpeta apaga una regla en silencio y el gate sigue
+#     imprimiendo errors=0 — pasó el 2026-08-28 con `*/UI/*` → `Features/`.
+#     Lección + detector: docs/process/lessons_learned.md [2026-08-28].
+if [ -f tools/check-layers-coverage.sh ]; then
+  bash tools/check-layers-coverage.sh || FAIL=1
+else
+  echo "(tools/check-layers-coverage.sh ausente — saltado)"
+fi
+
 # 4b) El SEGUNDO eje, el que el grafo por directorio no ve: en KMP, commonMain
 #     no puede importar plataforma. Inerte y silencioso en repos sin commonMain
 #     (estado `no-aplica`, exit 0): la mitad de los adoptantes no usa KMP y un

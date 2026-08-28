@@ -1,0 +1,124 @@
+import Foundation
+import CoreNetworking
+
+/// Adapter del puerto `PopularMoviesRepository` contra la API de TMDB.
+///
+/// Es el único sitio del proyecto que sabe que existe TMDB. El dominio habla de
+/// películas; esta clase traduce entre eso y `/3/movie/popular`.
+struct TMDBPopularMoviesRepository: PopularMoviesRepository {
+    private let api: APIServiceProtocol
+
+    init(api: APIServiceProtocol) {
+        self.api = api
+    }
+
+    func popularMovies() async throws(MoviesError) -> [Movie] {
+        do {
+            let pagina: PopularMoviesPageDTO = try await api.execute(request: PopularMoviesRequest())
+            return pagina.results.map(\.asMovie)
+        } catch {
+            throw Self.mapear(error)
+        }
+    }
+
+    /// Traduce el error de transporte al vocabulario del dominio.
+    ///
+    /// **Sin `default:` a propósito**: si `CoreNetworking` añade un caso en una
+    /// versión futura, esto deja de compilar en vez de convertirlo en
+    /// `.unknown` en silencio. El compilador es el primer reviewer (§14.0).
+    private static func mapear(_ error: APIError) -> MoviesError {
+        switch error {
+        case .cancelled:
+            // La distinción que decide OQ-14. `URLError.cancelled` llega igual
+            // la pidiéramos nosotros o no: el ÚNICO discriminador disponible es
+            // si nuestra propia Task está cancelada.
+            //
+            // - Task cancelada → la pedimos nosotros. Se mapea a `.unknown`, y
+            //   quien evita que llegue al usuario es el `guard !Task.isCancelled`
+            //   de `performLoad`, en AppFoundation.
+            // - Task viva → la cortó el transporte (sesión invalidada, red
+            //   caída a mitad). Es un fallo real y recuperable, y presentarlo
+            //   como «cancelado» dejaría la pantalla cargando para siempre.
+            //
+            // ⚠️ ESTO NO ES LO QUE EL PRD PRESCRIBE. §6.5-Trampa A y OQ-14 piden
+            // relanzar `CancellationError()` desde aquí, para que la protección
+            // viva en una capa que los tests de este módulo alcanzan (bloqueante
+            // B1). Con el `.unknown` actual, un consumidor fuera de
+            // `performLoad` —el decorador de caché de §16.2— mostraría «Algo ha
+            // ido mal» por una navegación del propio usuario. Decisión pendiente
+            // del owner: ver el recuadro de §6.4 del PRD 0001. Este comentario
+            // dice lo que el código HACE, no lo que debería hacer.
+            return Task.isCancelled ? .unknown : .connectionInterrupted
+
+        case .decodingError:
+            return .malformedResponse
+
+        case .httpStatus(let codigo, _), .custom(_, let codigo, _):
+            return mapearEstado(codigo)
+
+        case .networkError(let urlError):
+            return urlError.code == .notConnectedToInternet ? .offline : .unknown
+
+        case .certificateValidationFailed:
+            // El pinning rechazó el certificado. NO se degrada a .unknown ni se
+            // silencia: es la señal de que algo se interpuso en la conexión.
+            return .connectionInterrupted
+
+        case .invalidURL, .invalidResponse, .encodingError, .unknown:
+            return .unknown
+        }
+    }
+
+    private static func mapearEstado(_ codigo: Int) -> MoviesError {
+        switch codigo {
+        case 401, 403: .unauthorized
+        case 404: .notFound
+        case 429: .rateLimited
+        case 500...599: .server
+        default: .unknown
+        }
+    }
+}
+
+// MARK: - Transporte
+
+/// `GET /3/movie/popular`.
+///
+/// La credencial **no viaja aquí**: va en `defaultHeaders` de la configuración,
+/// como `Authorization: Bearer`. En la query acabaría en los logs — el
+/// interceptor redacta headers siempre, pero loguea la URL entera. (OQ-1.)
+private struct PopularMoviesRequest: BaseRequest {
+    typealias Parameters = EmptyParameters
+    var path = "/3/movie/popular"
+    var method: HTTPMethod = .GET
+    var headers: [String: String] = [:]
+    var queryItems: [URLQueryItem]?
+}
+
+/// La página tal como la publica TMDB.
+///
+/// `CodingKeys` explícitas y no `.convertFromSnakeCase`: la traducción se lee
+/// **aquí**, delante de quien mantiene el mapeo, en vez de ocurrir por una
+/// estrategia global invisible. (OQ-2: el decoder es configurable desde
+/// `CoreNetworking` 0.1.2; usar el de por defecto es una elección, no una
+/// restricción.)
+private struct PopularMoviesPageDTO: BaseResponse {
+    let results: [MovieDTO]
+}
+
+private struct MovieDTO: Decodable, Sendable {
+    let id: Int
+    let title: String
+    let posterPath: String?
+    let voteAverage: Double?
+
+    enum CodingKeys: String, CodingKey {
+        case id, title
+        case posterPath = "poster_path"
+        case voteAverage = "vote_average"
+    }
+
+    var asMovie: Movie {
+        Movie(id: MovieID(id), title: title, posterPath: posterPath, voteAverage: voteAverage)
+    }
+}

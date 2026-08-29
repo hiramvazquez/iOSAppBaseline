@@ -3,13 +3,14 @@
 > **GENERADA — NO editar a mano.** Fuente: `tools/findings/ledger.jsonl`.
 > Regenerar: `bash tools/findings/findings.sh render`.
 
-Abiertos: **32** · Cerrados: 18 · Total: 50
+Abiertos: **35** · Cerrados: 18 · Total: 53
 
 ## Abiertos
 
 | id | sev | tier | área | título |
 |---|---|---|---|---|
 | `f-29c26642` | high | owner-decision | `docs/process/reviews/2026-08-28-design-review-prd-0001.md:180-194` | El design-reviewer SI cazo la omision de Coordinator/DI (6a pasada, H-7) y el hallazgo se evaporo |
+| `f-7c08518b` | high | owner-decision | `tools/tests/test_agent_runner.sh` | La suite del harness tiene tests flaky de senales que bloquean el push al azar |
 | `f-7c57fa35` | high | owner-decision | `.claude/settings.json (permissions.deny) + Config/Secrets.xcconfig` | El fichero de secretos esta a un cat de distancia de cualquier sub-agente: gitignore no protege de eso |
 | `f-8720114e` | high | owner-decision | `spm-pro/AppFoundation/README.md:144-157` | El README de AppFoundation ensena el patron que rompe la identidad de los ViewModels |
 | `f-a3b6dafc` | high | owner-decision | `.agents/skills/architecture/**` | La skill de arquitectura ensena a NO usar los SPM propios: es el template sin rellenar |
@@ -25,8 +26,10 @@ Abiertos: **32** · Cerrados: 18 · Total: 50
 | `f-8ab6c2ad` | medium | owner-decision | `spm-pro/AppFoundation/Sources/AppFoundation/Navigation/Views/CoordinatorView.swift` | CoordinatorView no tiene ni un solo test, y es donde vive la trampa mas cara del paquete |
 | `f-8e30ad43` | medium | auto-fix | `scripts/agent-hooks/session-end.sh:51-58` | La judge-queue encolo un SID sin trayectoria y con commits=0 la sesion que escribio el slice 0 |
 | `f-b6c162d8` | medium | owner-decision | `docs/process/prds/0001-vertical-de-referencia-peliculas.md:171-175 (propuesta: tools/check-prd-tree.sh)` | El arbol de archivos del PRD 5 se comparo con lo entregado a ojo, y la pasada manual perdio los tres archivos que faltaban |
+| `f-cc4f2b3e` | medium | auto-fix | `tools/check-execution-map.sh:279` | check-execution-map: cualquier backtick vecino excusa una afirmacion de estado falsa |
 | `f-db694460` | medium | owner-decision | `spm-pro/AppFoundation/Sources/AppFoundation/DependencyInjection/Container.swift` | Container: registrar transient o scoped sobre un singleton ya materializado es silenciosamente inefectivo |
 | `f-e6743298` | medium | owner-decision | `spm-pro/CoreNetworking/Sources/CoreNetworking/RequestInterceptor.swift:130` | Privacidad invertida en los logs de red: la URL va private y el mensaje del servidor va public |
+| `f-ee56ec3` | medium | owner-decision | `tools/check-prd-tree.sh` | check-prd-tree lee la prosa que AVISA de una ruta como si la declarara |
 | `f-f17a5860` | medium | owner-decision | `tools/check-layers-coverage.sh` | Nada vigila que los globs de skill-matrix.conf no enmudezcan |
 | `f-update-sin-guard` | medium | auto-fix | `tools/findings/findings.sh:242` | update bypasa el guard de terminalidad: resucita un finding cerrado y pisa su resolucion |
 | `f-13afde3c` | low | auto-fix | `scripts/agent-hooks/ (capture de trayectoria)` | La trayectoria registra cd como path en 736 de 2143 Bash: el instrumento del nivel 9 es ciego al 55% del trabajo |

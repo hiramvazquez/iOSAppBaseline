@@ -175,7 +175,7 @@ Sources/
 > árbol** pese a que OQ-13 dice que entra.
 >
 > No es cosmético: un agente que entre en frío al slice 1 leerá este árbol, creará
-> `Tests/UnitTests/Support/FakePopularMoviesRepository.swift` y **duplicará el fake canónico** —
+> un fake nuevo bajo `Tests/UnitTests/Support/` y **duplicará el canónico** —
 > justo el escenario que la suite de conformidad existe para evitar. **Decidir en el slice 1**:
 > o el árbol se actualiza a `Movies/`, o los archivos se mueven al plan. Hoy manda el árbol real.
 
@@ -187,7 +187,7 @@ Tests/UnitTests/
     MoviesPaginationLogicTests.swift   ← el grueso del TDD puro
   Support/
     MoviesRepositoryConformance.swift  ← LA suite de conformidad (una, parametrizada)
-    FakePopularMoviesRepository.swift  ← fake del puerto; pasa la MISMA suite
+    (el fake canónico vive DENTRO de PopularMoviesRepositoryConformance.swift, en Movies/)
     FakeMovieDetailRepository.swift
     MoviesPortsSpy.swift               ← fake+spy con eventos enum (orquestación)
     TMDBFixtures.swift                 ← carga de los .json capturados

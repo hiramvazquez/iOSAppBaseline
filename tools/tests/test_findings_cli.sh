@@ -398,3 +398,198 @@ _case_drop_exige_razon() {
     || { echo "    el drop sin razón igualmente retiró la entrada"; return 1; }
 }
 test_drop_sin_razon_se_rechaza() { _fcli_sandbox _case_drop_exige_razon; }
+
+# ── close sobre un ya-cerrado NO sobrescribe la resolución ──────────
+# El invariante «un estado terminal no resucita» cubría `add`/`import`, y
+# dejaba fuera el camino contrario: `close` sobre algo YA cerrado reasignaba
+# `status`/`resolution` sin mirar el estado previo.
+#
+# Pasó de verdad (2026-08-28): un `close --resolution "test"` lanzado para
+# comprobar si el CLI admitía corregir una resolución machacó la resolución
+# real de un finding `high` ya cerrado. La pérdida es silenciosa y del dato
+# que justifica el cierre — justo lo que §10 dice que el ledger existe para
+# no perder.
+_case_close_no_pisa_resolucion_previa() {
+  _cli add --id f-t9 --title "Cerrado con motivo" --area x --source test >/dev/null 2>&1
+  _cli close f-t9 --resolution "la razón buena, con evidencia" >/dev/null 2>&1
+  _cli close f-t9 --resolution "test" >/dev/null 2>&1
+  grep -q "la razón buena" tools/findings/ledger.jsonl \
+    || { echo "    un segundo close PISÓ la resolución original"; return 1; }
+  grep -q '"resolution": *"test"' tools/findings/ledger.jsonl && { echo "    quedó la resolución basura"; return 1; }
+  return 0
+}
+test_close_no_pisa_resolucion_previa() { _fcli_sandbox _case_close_no_pisa_resolucion_previa; }
+
+_case_close_repetido_avisa_y_falla() {
+  _cli add --id f-t10 --title "Cerrable" --area x --source test >/dev/null 2>&1
+  _cli close f-t10 --resolution "primera" >/dev/null 2>&1
+  local rc; _cli close f-t10 --resolution "segunda" >/dev/null 2>&1; rc=$?
+  [ "$rc" != "0" ] || { echo "    cerrar dos veces salió 0: el aviso no bloquea nada"; return 1; }
+}
+test_close_repetido_avisa_y_falla() { _fcli_sandbox _case_close_repetido_avisa_y_falla; }
+
+# …pero corregir a propósito SÍ debe ser posible, y explícito.
+#
+# Comprueba las DOS ramas en el mismo caso, y eso no es redundante: la primera
+# versión de este test solo verificaba que `--force` funcionara, y con el código
+# viejo —sin guard— también pasaba, porque cerrar dos veces «funcionaba»
+# trivialmente. Un test que pasa igual con y sin la lógica que dice cubrir no
+# distingue nada. Lo cazó la review.
+_case_close_force_si_corrige() {
+  _cli add --id f-t11 --title "Cerrable" --area x --source test >/dev/null 2>&1
+  _cli close f-t11 --resolution "primera, incompleta" >/dev/null 2>&1
+  # sin --force: rebota y NO toca la resolución
+  _cli close f-t11 --resolution "la corregida" >/dev/null 2>&1 \
+    && { echo "    sin --force debería haber rebotado"; return 1; }
+  grep -q "primera, incompleta" tools/findings/ledger.jsonl \
+    || { echo "    el intento sin --force alteró la resolución"; return 1; }
+  # con --force: corrige
+  _cli close f-t11 --resolution "la corregida" --force >/dev/null 2>&1 \
+    || { echo "    --force no dejó corregir una resolución"; return 1; }
+  grep -q "la corregida" tools/findings/ledger.jsonl || { echo "    --force no aplicó la corrección"; return 1; }
+}
+test_close_force_si_corrige() { _fcli_sandbox _case_close_force_si_corrige; }
+
+# ── --force sin resolución nueva: la puerta que el propio guard abría ──
+# Si `--force` salta el guard y no se da `--resolution`, el codigo caía al
+# placeholder generico ("fixed") y machacaba la resolución real **en silencio**
+# — la misma perdida que motivó el guard, por la puerta que el guard ofrece
+# como via legitima de correccion. Lo cazó la review del propio fix.
+_case_force_sin_resolucion_no_pisa() {
+  _cli add --id f-t13 --title "Cerrable" --area x --source test >/dev/null 2>&1
+  _cli close f-t13 --resolution "la razón real, con evidencia" >/dev/null 2>&1
+  local rc; _cli close f-t13 --force >/dev/null 2>&1; rc=$?
+  [ "$rc" != "0" ] || { echo "    --force sin --resolution salió 0"; return 1; }
+  grep -q "la razón real" tools/findings/ledger.jsonl \
+    || { echo "    --force sin --resolution PISÓ la resolución con el placeholder"; return 1; }
+}
+test_force_sin_resolucion_no_pisa() { _fcli_sandbox _case_force_sin_resolucion_no_pisa; }
+
+# ── el guard vale para `accept`, no solo para `close` ───────────────
+# Compartían rama de código, pero «está cubierto porque comparte código» no es
+# un test: si mañana se separan, nadie se entera.
+_case_accept_no_pisa_resolucion_previa() {
+  _cli add --id f-t14 --title "Aceptable" --area x --source test >/dev/null 2>&1
+  _cli close f-t14 --resolution "cerrado con su motivo" >/dev/null 2>&1
+  local rc; _cli accept f-t14 --reason "test" >/dev/null 2>&1; rc=$?
+  [ "$rc" != "0" ] || { echo "    accept sobre un terminal salió 0"; return 1; }
+  grep -q "cerrado con su motivo" tools/findings/ledger.jsonl \
+    || { echo "    accept PISÓ la resolución de un finding ya cerrado"; return 1; }
+}
+test_accept_no_pisa_resolucion_previa() { _fcli_sandbox _case_accept_no_pisa_resolucion_previa; }
+
+# ── cerrar un id inexistente no puede pasar en silencio ─────────────
+_case_close_id_inexistente_falla() {
+  _cli add --id f-t12 --title "Existe" --area x --source test >/dev/null 2>&1
+  local rc; _cli close f-NO-EXISTE --resolution "x" >/dev/null 2>&1; rc=$?
+  [ "$rc" != "0" ] || { echo "    cerrar un id inexistente salió 0 — el usuario cree que cerró algo"; return 1; }
+}
+test_close_id_inexistente_falla() { _fcli_sandbox _case_close_id_inexistente_falla; }
+
+# ── un flag no puede tragarse otro flag como valor ──────────────────
+# `flags()` (plural) ya comprobaba que el token siguiente no empezara por `--`;
+# `flag()` (singular) no, y devolvía el siguiente token fuera lo que fuera.
+#
+# Consecuencia real, cazada revisando el propio guard de terminalidad:
+# `close ID --resolution --force` dejaba `nueva = "--force"` (truthy, salta el
+# check de «force sin resolución») y a la vez `--force` seguía en la lista (así
+# que el guard de terminalidad también se desactivaba). Resultado: la
+# resolución real sobrescrita con la cadena literal "--force", exit 0, sin
+# aviso. La misma pérdida silenciosa que el guard existe para evitar, por una
+# tercera puerta.
+_case_flag_no_se_traga_otro_flag() {
+  _cli add --id f-t15 --title "Cerrable" --area x --source test >/dev/null 2>&1
+  _cli close f-t15 --resolution "la razón real" >/dev/null 2>&1
+  local rc; _cli close f-t15 --resolution --force >/dev/null 2>&1; rc=$?
+  [ "$rc" != "0" ] || { echo "    '--resolution --force' salió 0"; return 1; }
+  grep -q '"resolution": *"--force"' tools/findings/ledger.jsonl && { echo "    quedó el literal --force como resolución"; return 1; }
+  grep -q "la razón real" tools/findings/ledger.jsonl \
+    || { echo "    '--resolution --force' PISÓ la resolución original"; return 1; }
+  return 0
+}
+test_flag_no_se_traga_otro_flag() { _fcli_sandbox _case_flag_no_se_traga_otro_flag; }
+
+# ── un valor legítimo puede empezar por `--` ────────────────────────
+# La regresión que introdujo el arreglo anterior: al rechazar como valor
+# CUALQUIER token que empiece por `--`, un texto libre que arranca con guiones
+# se perdía en silencio (exit 0, campo vacío o placeholder). Y en ESTE ledger es
+# de lo más probable: su contenido describe bugs de flags de CLI, así que los
+# títulos y detalles llevan `--algo` dentro constantemente.
+#
+# La distinción correcta no es «empieza por --» sino «ES un flag conocido»:
+# `--force` era ambiguo porque existe como flag; «--force needs a reason» no.
+_case_valor_legitimo_con_guiones_sobrevive() {
+  _cli add --id f-t16 --title "Bug de CLI" --area x --source test \
+      --detail "--force sin --resolution pisa el dato" >/dev/null 2>&1
+  grep -q -- "--force sin --resolution pisa el dato" tools/findings/ledger.jsonl \
+    || { echo "    un --detail que empieza por -- se perdió"; return 1; }
+  _cli close f-t16 --resolution "--force ya exige motivo, arreglado" >/dev/null 2>&1 \
+    || { echo "    close con --resolution que empieza por -- falló"; return 1; }
+  grep -q -- "--force ya exige motivo" tools/findings/ledger.jsonl \
+    || { echo "    la resolución que empieza por -- se perdió"; return 1; }
+  grep -q '"resolution": *"fixed"' tools/findings/ledger.jsonl && { echo "    cayó al placeholder generico"; return 1; }
+  return 0
+}
+test_valor_legitimo_con_guiones_sobrevive() { _fcli_sandbox _case_valor_legitimo_con_guiones_sobrevive; }
+
+# ── un flag conocido en posición de valor no puede caer al placeholder ──
+# La QUINTA puerta de la misma familia. `KNOWN_FLAGS` cerró el caso de
+# `--force` porque hay un guard específico para ese literal; cualquier OTRO
+# flag conocido en la posición del valor cae a `or "fixed"` / `or "aceptado"`
+# en silencio, con exit 0. Nadie distinguía «no diste --resolution» (uso válido
+# y documentado) de «diste --resolution y el valor se lo comió otro flag».
+_case_flag_conocido_como_valor_no_cae_al_placeholder() {
+  _cli add --id f-t17 --title "T" --area x --source test >/dev/null 2>&1
+  local rc; _cli close f-t17 --resolution --tier >/dev/null 2>&1; rc=$?
+  [ "$rc" != "0" ] || { echo "    'close --resolution --tier' salió 0"; return 1; }
+  grep -q '"resolution": *"fixed"' tools/findings/ledger.jsonl && { echo "    cayó al placeholder en silencio"; return 1; }
+  _cli add --id f-t18 --title "T" --area x --source test >/dev/null 2>&1
+  _cli accept f-t18 --reason --severity >/dev/null 2>&1 && { echo "    'accept --reason --severity' salió 0"; return 1; }
+  return 0
+}
+test_flag_conocido_como_valor_no_cae_al_placeholder() { _fcli_sandbox _case_flag_conocido_como_valor_no_cae_al_placeholder; }
+
+# `--resolution ""` explícito tiene el mismo síntoma: vacío ≠ «no lo diste».
+_case_resolucion_vacia_no_cae_al_placeholder() {
+  _cli add --id f-t19 --title "T" --area x --source test >/dev/null 2>&1
+  local rc; _cli close f-t19 --resolution "" >/dev/null 2>&1; rc=$?
+  [ "$rc" != "0" ] || { echo "    'close --resolution \"\"' salió 0"; return 1; }
+}
+test_resolucion_vacia_no_cae_al_placeholder() { _fcli_sandbox _case_resolucion_vacia_no_cae_al_placeholder; }
+
+# ── KNOWN_FLAGS es una lista a mano: que no se desincronice del USAGE ──
+# Si alguien añade un flag al CLI y no lo mete en KNOWN_FLAGS, el siguiente
+# valor que lo lleve delante se pierde sin avisar — la misma familia otra vez,
+# y hoy NADA lo nota: quitar `--tier` de la lista deja los 40 tests en verde.
+# Una lista a mano que debe seguir sincronizada con otra cosa necesita su
+# detector (§10), o es la próxima gotera esperando.
+_case_known_flags_cubre_el_usage() {
+  python3 - <<'PY' || return 1
+import re, sys
+s = open('tools/findings/findings.sh').read()
+kf = set(re.findall(r'"(--[a-z-]+)"', s.split('KNOWN_FLAGS = {')[1].split('}')[0]))
+usage = s.split('USAGE = """')[1].split('"""')[0]
+uf = set(re.findall(r'--[a-z-]+', usage))
+faltan = uf - kf
+if faltan:
+    print(f"    flags en USAGE que faltan en KNOWN_FLAGS: {sorted(faltan)}")
+    sys.exit(1)
+PY
+}
+test_known_flags_cubre_el_usage() { _fcli_sandbox _case_known_flags_cubre_el_usage; }
+
+# ── cerrar un id inexistente falla CON MENSAJE, no con un traceback ──
+# El test anterior solo comprobaba `rc != 0`, y pasaba igual sin el guard:
+# sin él, `match[0]` sobre una lista vacía revienta con IndexError y rc=1. No
+# distinguía «falla explicando» de «crashea sin explicar» — decorativo (§5).
+_case_close_id_inexistente_explica() {
+  _cli add --id f-t20 --title "Existe" --area x --source test >/dev/null 2>&1
+  local out; out="$(_cli close f-NO-EXISTE --resolution "x" 2>&1)"
+  case "$out" in
+    *"no existe el finding"*) : ;;
+    *) echo "    no explicó el fallo (¿traceback?): $out"; return 1 ;;
+  esac
+  case "$out" in *Traceback*) echo "    reventó con traceback en vez de fallar limpio"; return 1 ;; esac
+  return 0
+}
+test_close_id_inexistente_explica() { _fcli_sandbox _case_close_id_inexistente_explica; }

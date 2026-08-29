@@ -3,7 +3,7 @@
 > **GENERADA — NO editar a mano.** Fuente: `tools/findings/ledger.jsonl`.
 > Regenerar: `bash tools/findings/findings.sh render`.
 
-Abiertos: **13** · Cerrados: 5 · Total: 18
+Abiertos: **13** · Cerrados: 14 · Total: 27
 
 ## Abiertos
 
@@ -32,3 +32,12 @@ Abiertos: **13** · Cerrados: 5 · Total: 18
 | `f-f6b72573` | fixed | OQ-17 resuelta por el owner (2026-08-28): C2 se RETIRA del contrato. El puerto NO deduplica; la unic |
 | `f-31902e86` | fixed | Refactor (b), 2026-08-28. load() suelto sustituido por enum Action + handle(_:) en PopularMoviesView |
 | `f-bba673a7` | fixed | OQ-C autorizada por el owner (2026-08-28): */Features/* y */App/* anadidos a tools/skill-matrix.conf |
+| `f-close-guard` | fixed | Guard implementado y verificado reproduciendo el error original contra el ledger real: la resolucion |
+| `f-44fd100c` | fixed | Arreglado en el mismo turno. --force sin --resolution/--reason sale 2 con mensaje que dice que hace  |
+| `f-6d36a878` | fixed | Test reescrito para comprobar las DOS ramas: sin --force rebota y no altera la resolucion; con --for |
+| `f-a5d90bc` | fixed | Anadido test_accept_no_pisa_resolucion_previa. Verificado con mutante C (restringir el guard a cmd = |
+| `f-a14d1993` | fixed | Arreglado en flag(): un token que empieza por -- deja de contar como valor. Verificado contra el led |
+| `f-flag-overbroad` | fixed | Lista cerrada KNOWN_FLAGS. Las cuatro puertas de la familia verificadas contra el ledger real: close |
+| `f-flag-placeholder` | fixed | Aplicado require_flag_values a resolution/reason: el mecanismo YA existia en el archivo y solo se us |
+| `f-known-flags-drift` | fixed | Test test_known_flags_cubre_el_usage: extrae los flags del USAGE y exige que KNOWN_FLAGS los cubra.  |
+| `f-test-id-decorativo` | fixed | Anadido test_close_id_inexistente_explica, que exige el mensaje en stderr y prohibe el traceback. Ve |

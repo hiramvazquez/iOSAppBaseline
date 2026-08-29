@@ -132,17 +132,47 @@ def render(items):
         f.write("\n".join(lines) + "\n")
     print(f"✅ render → {VIEW} ({len(items)} hallazgos, {len(open_)} abiertos)")
 
+# Los flags que este CLI reconoce. La lista es CERRADA a propósito: es lo que
+# permite distinguir «el token siguiente es otro flag» de «es texto libre que
+# casualmente empieza por guiones».
+#
+# Historia de las dos versiones anteriores de esta comprobación, porque las dos
+# perdían datos en silencio y en direcciones opuestas:
+#
+#   1. Sin comprobación: `close ID --resolution --force` guardaba el literal
+#      "--force" como resolución, y además desactivaba el guard de terminalidad.
+#   2. Comprobando `startswith("--")`: se arreglaba lo anterior, pero un
+#      `--detail "--force sin --resolution pisa el dato"` se perdía entero. En
+#      ESTE ledger eso es de lo más probable: su contenido describe bugs de
+#      flags, así que los textos llevan `--algo` dentro constantemente.
+#
+# La lista cerrada elimina la ambigüedad de raíz: `--force` es ambiguo porque
+# EXISTE como flag; un texto arbitrario que empieza por guiones no lo es.
+# Si añades un flag al CLI, añádelo aquí — si no, el siguiente valor que lo
+# lleve delante se perderá sin avisar.
+KNOWN_FLAGS = {
+    "--id", "--title", "--area", "--severity", "--tier", "--source",
+    "--source-event", "--detail", "--effort", "--links", "--resolution",
+    "--reason", "--status", "--json", "--force",
+}
+
+def _es_valor(token):
+    return token not in KNOWN_FLAGS
+
 def flag(rest, name):
     try:
-        i = rest.index(f"--{name}"); return rest[i + 1]
-    except (ValueError, IndexError):
+        i = rest.index(f"--{name}")
+    except ValueError:
         return None
+    if i + 1 >= len(rest) or not _es_valor(rest[i + 1]):
+        return None
+    return rest[i + 1]
 
 def flags(rest, name):
     values = []
     needle = f"--{name}"
     for i, value in enumerate(rest):
-        if value == needle and i + 1 < len(rest) and not rest[i + 1].startswith("--"):
+        if value == needle and i + 1 < len(rest) and _es_valor(rest[i + 1]):
             values.append(rest[i + 1])
     return values
 
@@ -150,7 +180,7 @@ def require_flag_values(rest, name):
     needle = f"--{name}"
     for i, value in enumerate(rest):
         if value == needle and (
-            i + 1 >= len(rest) or not rest[i + 1] or rest[i + 1].startswith("--")
+            i + 1 >= len(rest) or not rest[i + 1] or not _es_valor(rest[i + 1])
         ):
             print(f"❌ {needle} requiere un valor.", file=sys.stderr)
             sys.exit(2)
@@ -167,6 +197,7 @@ USAGE = """findings.sh — CLI portable del ledger (mismo esquema que findings.t
       [--source S] [--source-event EVENT_ID] [--detail D] [--effort S|M|L] [--links a,b]
   update ID [--title T] [--area A] [--severity S] [--detail D] [--tier T] [--links a,b]
   close ID --resolution "..."      accept ID --reason "..."
+      (sobre uno ya cerrado avisan y salen 2; --force para corregir la resolución)
   drop ID --reason "..."           (retira una entrada que NUNCA fue un hallazgo)
   import batch.json [--source-event EVENT_ID]   list [--status open] [--tier T] [--json]
   render"""
@@ -258,16 +289,57 @@ elif cmd == "import":
         )
         items = upsert(items, promoted)
     save(items); render(items)
-elif cmd == "close":
-    for i in items:
-        if i["id"] == rest[0]:
-            i["status"] = "fixed"; i["resolution"] = flag(rest,"resolution") or "fixed"; i["updatedAt"] = today
-    save(items); render(items)
-elif cmd == "accept":
-    for i in items:
-        if i["id"] == rest[0]:
-            i["status"] = "accepted"; i["tier"] = "accepted"
-            i["resolution"] = flag(rest,"reason") or "aceptado"; i["updatedAt"] = today
+elif cmd in ("close", "accept"):
+    # Guard de terminalidad, simétrico al que `add`/`import` ya tenían.
+    #
+    # Aquel impide RESUCITAR un finding cerrado; este impide lo contrario y
+    # tan destructivo: sobrescribir la resolución de uno que YA estaba cerrado.
+    # La resolución es el dato que justifica el cierre — lo que §10 dice que el
+    # ledger existe para no perder—, y se perdía sin avisar.
+    #
+    # Pasó de verdad (2026-08-28): un `close --resolution "test"` lanzado para
+    # comprobar si el CLI admitía corregir una resolución machacó la de un
+    # finding `high` real. Y cerrar un id inexistente salía 0, así que el
+    # usuario creía haber cerrado algo.
+    target = rest[0] if rest else ""
+    match = [i for i in items if i["id"] == target]
+    if not match:
+        print(f"❌ no existe el finding '{target}': no hay nada que "
+              f"{'cerrar' if cmd == 'close' else 'aceptar'}.", file=sys.stderr)
+        print("   Comprueba el id con `findings.sh list --status open`.", file=sys.stderr)
+        sys.exit(2)
+    i = match[0]
+    campo_valor = "resolution" if cmd == "close" else "reason"
+    # `require_flag_values` ya existía en este archivo y solo se usaba para
+    # `--source-event`. Sin aplicarlo aquí, un flag conocido en la posición del
+    # valor —`close ID --resolution --tier`— hacía que `flag()` devolviera None
+    # y el código cayera a `or "fixed"`: nadie distinguía «no diste
+    # --resolution» (uso válido y documentado) de «lo diste y el valor se lo
+    # comió otro flag». Quinta puerta de la misma familia, cerrada con el
+    # mecanismo que ya estaba escrito. Cubre también `--resolution ""`.
+    require_flag_values(rest, campo_valor)
+    nueva = flag(rest, campo_valor)
+    if "--force" in rest and not nueva:
+        # `--force` existe para CORREGIR una resolución, así que sin una nueva
+        # no tiene sentido: caería al placeholder genérico y machacaría la real
+        # en silencio — la misma pérdida que este guard evita, por la puerta que
+        # el propio guard abre como vía legítima. Lo cazó la review del fix.
+        campo = "--resolution" if cmd == "close" else "--reason"
+        print(f"❌ --force sin {campo}: eso sobrescribiría la resolución actual con un", file=sys.stderr)
+        print(f"   placeholder genérico. Si quieres corregirla, di con qué: {campo} \"...\"", file=sys.stderr)
+        sys.exit(2)
+    if i["status"] in TERMINAL and "--force" not in rest:
+        print(f"⚠️  {target} ya está en '{i['status']}', con esta resolución:", file=sys.stderr)
+        print(f"     {(i.get('resolution') or '')[:160]}", file=sys.stderr)
+        print("   Volver a cerrarlo la SOBRESCRIBIRÍA. Si de verdad quieres corregirla,", file=sys.stderr)
+        print("   repite el comando con --force.", file=sys.stderr)
+        sys.exit(2)
+    if cmd == "close":
+        i["status"] = "fixed"; i["resolution"] = flag(rest,"resolution") or "fixed"
+    else:
+        i["status"] = "accepted"; i["tier"] = "accepted"
+        i["resolution"] = flag(rest,"reason") or "aceptado"
+    i["updatedAt"] = today
     save(items); render(items)
 elif cmd == "list":
     r = items

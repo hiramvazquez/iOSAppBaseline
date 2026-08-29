@@ -310,6 +310,8 @@ y después: stagea → invoca al sub-agente `reviewer` → commitea en un comand
 > | `tools/tests/test_layers_coverage.sh` (nuevo) | crear los tests de FALSO POSITIVO del detector | **2026-08-28** — el `MANIFEST` de `test_meta_fp.sh` exige que todo detector tenga tests de FP; sin ellos no sabríamos si supera el ~10% que lo condenaría (§14.2) |
 > | `tools/tests/test_meta_fp.sh` | registrar el detector en el `MANIFEST` | **2026-08-28** — su propio comentario lo pide «en el MISMO cambio» |
 > | `tools/tests/test_e2e_gates_anillo3.sh` | añadir el detector a `_G9_INVENTARIO` | **2026-08-28** — sin ello el golden 9 corría el detector real contra un repo fake y tumbaba el escenario «todo en verde» |
+> | `tools/findings/findings.sh` | guard de terminalidad en `close`/`accept` | **2026-08-28** — sobrescribían la resolución de un finding ya cerrado sin avisar, y cerrar un id inexistente salía 0. Se comió una resolución real de un finding `high` |
+> | `tools/tests/test_findings_cli.sh` | los cuatro tests de ese guard | **2026-08-28** — el arreglo de un footgun sin test es el mismo footgun con mejor conciencia |
 >
 > *(Esta tabla decía «lo que **no** está autorizado y por eso no se hizo: `skill-matrix.conf` y
 > `AGENTS.md`» **después** de que el owner autorizara ambos y de que el cambio estuviera hecho.
@@ -909,7 +911,7 @@ el closure sin el store mergea con el bug dentro.
 | T-P-6 | ids duplicados entre páginas ⇒ **unicidad + orden de primera aparición** | **PBT** |
 | T-P-7 | página fuera de orden (≠ la esperada) ⇒ se descarta, el estado no cambia | ejemplo |
 | T-P-8 | petición mientras hay una página en vuelo ⇒ se ignora (guard de re-entrada) | ejemplo |
-| T-P-11 | El caso de cancelación propia **no deja fase de error**: con la `Task` cancelada, la pantalla no pinta error ni se queda cargando | fila que OQ-14 daba por escrita y **no existía** hasta la 6ª pasada (H-6). Es la defensa que OQ-22 difiere: entra con el refactor (b) |
+| T-P-11 | El caso de cancelación propia **no deja fase de error**: con la `Task` cancelada, la pantalla no pinta error ni se queda cargando | fila que OQ-14 daba por escrita y **no existía** hasta la 6ª pasada (H-6). Es la defensa que OQ-22 difiere, y **no entró con el refactor (b)**: ese refactor tocó el ViewModel y esta decisión vive en el adapter. Sigue pendiente (ledger `f-52ef5f6d`) |
 | T-P-9 | fallo de página ⇒ el estado conserva lo cargado y **conserva la página a reintentar** | ejemplo |
 
 **Adapter / mapeo de errores — slice 0 (existe hoy), con `MockURLProtocol`.**
@@ -1209,11 +1211,18 @@ de §13 no podía encontrar:
       `performLoad` mostraría «Algo ha ido mal» por una navegación del propio usuario.
       Ledger `f-52ef5f6d`.
 
-      > ⏭️ **DIFERIDA por el owner (2026-08-28) al refactor (b)** —`enum Action` + `handle(_:)`—,
-      > donde se decide junto con la idempotencia de la primera carga, que vive en la misma
-      > capa. **No bloquea el `Approved` ni el commit del slice 0**, por la razón de arriba: el
-      > código y sus comentarios ya dicen lo que hacen, así que lo que queda es una decisión de
-      > diseño pendiente y declarada, no una divergencia oculta.
+      > ⏭️ **DIFERIDA por el owner (2026-08-28) y SIGUE ABIERTA.** Se difirió «al refactor (b)»,
+      > suponiendo que se decidiría junto con la idempotencia de la primera carga por vivir en la
+      > misma capa. **Esa suposición era falsa y conviene no repetirla:** el refactor (b) aterrizó
+      > en `bd43911` sin tocar `Sources/Data/Movies/TMDBPopularMoviesRepository.swift` —la
+      > decisión vive en el **adapter**, no en el ViewModel—, así que quedó exactamente donde
+      > estaba. Ledger `f-52ef5f6d`, abierto.
+      >
+      > **No bloquea el `Approved` ni el commit del slice 0**, por la razón de arriba: el código y
+      > sus comentarios ya dicen lo que hacen, así que lo que queda es una decisión de diseño
+      > pendiente y declarada, no una divergencia oculta. Pero **sí bloquea el slice de
+      > paginación y el decorador de caché** de §16.2, donde un consumidor fuera de `performLoad`
+      > mostraría «Algo ha ido mal» por una navegación del propio usuario.
 
 
 ## 14. Mockups / referencias
@@ -1314,6 +1323,7 @@ de §13 no podía encontrar:
 | 2026-08-28 | Pasada 6: el puerto **seguía publicando C2** en su doc-comment y afirmaba que la suite verifica cinco garantías cuando verifica una. Corregido en `PopularMoviesRepository.swift`, que ahora declara **quién verifica cada garantía** | design-reviewer |
 | 2026-08-28 | `security-reviewer` 🟡 **AMBER** sobre la cadena completa de la credencial: sin secretos en el diff, token en header y no en query, fail-closed confirmado, sin interceptors cableados. `f-3236fb0` cerrado | security-reviewer |
 | **2026-08-28** | **`Status: Draft → Approved`** | **owner** |
+| 2026-08-28 | Slice 0 commiteado (`73459e8`). Refactor (b) commiteado (`bd43911`): `enum Action` + `handle(_:)`, idempotencia de la primera carga (`f-31902e86` cerrado) y `load()` privado. **OQ-22 NO se decidió con él** —se había diferido «al refactor (b)» suponiendo que caería en la misma capa, y vive en el adapter—: sigue abierta en `f-52ef5f6d` | owner + reviewer |
 
 ## 18. Gaps detectados (llenar post-ship)
 

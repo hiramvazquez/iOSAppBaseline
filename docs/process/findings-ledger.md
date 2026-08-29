@@ -3,13 +3,14 @@
 > **GENERADA — NO editar a mano.** Fuente: `tools/findings/ledger.jsonl`.
 > Regenerar: `bash tools/findings/findings.sh render`.
 
-Abiertos: **14** · Cerrados: 15 · Total: 29
+Abiertos: **15** · Cerrados: 15 · Total: 30
 
 ## Abiertos
 
 | id | sev | tier | área | título |
 |---|---|---|---|---|
 | `f-ed8f24f6` | high | owner-decision | `CoreNetworking/Sources/CoreNetworking/SessionDelegates.swift` | El delegado de SSL pinning no esta verificado: invertir su condicion no rompe ningun test |
+| `f-f2a4ca6e` | high | owner-decision | `Sources/App/**` | El modulo de referencia NO usa Coordinator/Router ni Container/@Inject de AppFoundation, que AGENTS.md SS3 prescribe |
 | `f-52ef5f6d` | medium | auto-fix | `Sources/Data/Movies/TMDBPopularMoviesRepository.swift:35` | Decision pendiente: CancellationError prescrito vs .unknown implementado |
 | `f-54d7ee41` | medium | auto-fix | `Sources/Features/Movies/PopularMoviesView.swift:10` | @State private var viewModel duplica el dueno de la identidad |
 | `f-7b10426e` | medium | owner-decision | `Tests/UnitTests/Movies` | T-S-1 (sentinela de credencial) sin escribir: decidir escribirlo o aceptar la cobertura actual |

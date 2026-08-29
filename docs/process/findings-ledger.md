@@ -3,14 +3,13 @@
 > **GENERADA — NO editar a mano.** Fuente: `tools/findings/ledger.jsonl`.
 > Regenerar: `bash tools/findings/findings.sh render`.
 
-Abiertos: **14** · Cerrados: 14 · Total: 28
+Abiertos: **14** · Cerrados: 15 · Total: 29
 
 ## Abiertos
 
 | id | sev | tier | área | título |
 |---|---|---|---|---|
 | `f-ed8f24f6` | high | owner-decision | `CoreNetworking/Sources/CoreNetworking/SessionDelegates.swift` | El delegado de SSL pinning no esta verificado: invertir su condicion no rompe ningun test |
-| `f-3480a974` | medium | auto-fix | `spm-pro/CoreNetworking` | TransportError va a CoreNetworking: publicar 0.1.4 y re-fijar |
 | `f-52ef5f6d` | medium | auto-fix | `Sources/Data/Movies/TMDBPopularMoviesRepository.swift:35` | Decision pendiente: CancellationError prescrito vs .unknown implementado |
 | `f-54d7ee41` | medium | auto-fix | `Sources/Features/Movies/PopularMoviesView.swift:10` | @State private var viewModel duplica el dueno de la identidad |
 | `f-7b10426e` | medium | owner-decision | `Tests/UnitTests/Movies` | T-S-1 (sentinela de credencial) sin escribir: decidir escribirlo o aceptar la cobertura actual |
@@ -22,6 +21,7 @@ Abiertos: **14** · Cerrados: 14 · Total: 28
 | `f-6453846` | low | owner-decision | `docs/process/prds/0001-vertical-de-referencia-peliculas.md (DoST NO-TOUCH)` | El comando NO-TOUCH del DoD solo cubre el subconjunto tooling/meta del bloque |
 | `f-975e3cb1` | low | auto-fix | `tools/semgrep-scan.sh:94` | semgrep-scan.sh --all revienta con TARGETS vacio bajo bash 3.2 (unbound variable) |
 | `f-b6f2c1a4` | low | owner-decision | `.claude/rules/10-ios-ui.md + Sources/Features/Movies/PopularMoviesViewModel.swift` | Unificar el nombre de la intencion: vm.send(...) vs handle(_:) |
+| `f-d4b58c90` | low | auto-fix | `docs/process/current_execution_map.md` | current_execution_map.md punto 1 describe commitear el slice 0 como pendiente, ya commiteado |
 | `f-e4a8a982` | low | auto-fix | `tools/check-layers-coverage.sh` | check-layers-coverage: la exencion del bloque universal es posicional, no semantica |
 
 ## Cerrados
@@ -32,6 +32,7 @@ Abiertos: **14** · Cerrados: 14 · Total: 28
 | `f-3236fb0` | fixed | El gate corrio el 2026-08-28: security-reviewer VERDICT AMBER, 2 findings, ninguno bloqueante, marke |
 | `f-f6b72573` | fixed | OQ-17 resuelta por el owner (2026-08-28): C2 se RETIRA del contrato. El puerto NO deduplica; la unic |
 | `f-31902e86` | fixed | Refactor (b), 2026-08-28. load() suelto sustituido por enum Action + handle(_:) en PopularMoviesView |
+| `f-3480a974` | fixed | Publicado CoreNetworking 0.1.4 (github.com/hiramvazquez/CoreNetworking, tag 0.1.4, revision 4d299f36 |
 | `f-bba673a7` | fixed | OQ-C autorizada por el owner (2026-08-28): */Features/* y */App/* anadidos a tools/skill-matrix.conf |
 | `f-close-guard` | fixed | Guard implementado y verificado reproduciendo el error original contra el ledger real: la resolucion |
 | `f-44fd100c` | fixed | Arreglado en el mismo turno. --force sin --resolution/--reason sale 2 con mensaje que dice que hace  |

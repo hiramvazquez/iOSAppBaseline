@@ -55,18 +55,27 @@
    documento y están cerrados: troceo por slices en §5b, contrato republicado en §6.3 con ids
    inmutables, forma prohibida de C5 escrita, e idioma fuente decidido (**`es`**, con
    `developmentRegion` añadido a OQ-3).
-2. **Tres cambios de arquitectura acordados (2026-08-28), en este orden y después del commit:**
+2. **Tres cambios de arquitectura acordados (2026-08-28) — los tres cerrados.**
    (a) sacar el mapeo transporte→dominio a un `TransportError` **en `CoreNetworking`** (OQ-18,
-   2026-08-28) con el copy —`extension TransportError: AppErrorConvertible`— quedándose en la
-   app, dejando `MoviesError` con `.transport(TransportError) + notFound + malformedResponse`.
-   Implica publicar `CoreNetworking 0.1.4` y re-fijar `Package.resolved`; **sin payloads
-   `String`** o se cae el argumento por construcción de S1. Ojo: `.transport(_)` mata
-   `CaseIterable`, y con él los dos tests que iteran `allCases`; (b) sustituir `load()` por
+   2026-08-28) — ✅ **HECHO el 2026-08-28**, publicado como `CoreNetworking 0.1.4` (revisión
+   `4d299f3634fd…`) y `Package.resolved` re-fijado. **El diseño entregado corrige el de este
+   mismo párrafo**: el plan original dejaba `MoviesError` con `.transport(TransportError) +
+   notFound + malformedResponse`, pero eso exige `import CoreNetworking` en
+   `Sources/Domain/Movies/MoviesError.swift`, y `tools/layers.conf:41` se lo prohíbe
+   explícitamente a `*/Domain/*` — el argumento de más arriba ("la regla ... lo cubre
+   automáticamente") leía esa regla al revés: VIGILA la frontera, no la PERMITE. Entregado en su
+   lugar: `MoviesError` **sin cambios de forma** (sigue siendo el mismo enum plano de siempre,
+   `CaseIterable` intacto — `.transport(_)` nunca llegó a existir);
+   `TMDBPopularMoviesRepository.mapearTransporte(_:)` traduce valor a valor desde
+   `TransportError`, en `Data/`, donde el import sí está permitido. Sin payloads `String` en
+   `TransportError` (verificado con test centinela) — S1 se sostiene igual que antes, por
+   construcción; (b) sustituir `load()` por
    `enum Action` + `handle(_:)` en el ViewModel — ✅ **HECHO el 2026-08-28**, con la idempotencia
    de la primera carga que faltaba (`f-31902e86` cerrado), verificado con mutantes —incluido el que
    reproduce la regresión de recuperabilidad en `.empty` que la review cazó—;
-   (c) sacar los DTOs y su mapeo del adapter a su propio archivo. Cada uno deja los tests verdes
-   o explica cuál cambió y por qué, y se comprueba con mutantes.
+   (c) sacar los DTOs y su mapeo del adapter a su propio archivo — ✅ **HECHO el 2026-08-28**, en
+   `Sources/Data/Movies/TMDBDTOs.swift`, con tests de decodificación directa (sin mock de red)
+   que cierran un hueco real: `vote_average` nulo no tenía cobertura en ninguna fixture existente.
 
    > Nota de convención pendiente: `.claude/rules/10-ios-ui.md` dice que la View «emite intención
    > (`vm.send(...)`)» y el refactor (b) usó `handle(_:)`. Unificar el nombre **antes** de que

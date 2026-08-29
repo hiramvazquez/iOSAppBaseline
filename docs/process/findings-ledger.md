@@ -3,13 +3,14 @@
 > **GENERADA — NO editar a mano.** Fuente: `tools/findings/ledger.jsonl`.
 > Regenerar: `bash tools/findings/findings.sh render`.
 
-Abiertos: **31** · Cerrados: 16 · Total: 47
+Abiertos: **32** · Cerrados: 18 · Total: 50
 
 ## Abiertos
 
 | id | sev | tier | área | título |
 |---|---|---|---|---|
 | `f-29c26642` | high | owner-decision | `docs/process/reviews/2026-08-28-design-review-prd-0001.md:180-194` | El design-reviewer SI cazo la omision de Coordinator/DI (6a pasada, H-7) y el hallazgo se evaporo |
+| `f-7c57fa35` | high | owner-decision | `.claude/settings.json (permissions.deny) + Config/Secrets.xcconfig` | El fichero de secretos esta a un cat de distancia de cualquier sub-agente: gitignore no protege de eso |
 | `f-8720114e` | high | owner-decision | `spm-pro/AppFoundation/README.md:144-157` | El README de AppFoundation ensena el patron que rompe la identidad de los ViewModels |
 | `f-a3b6dafc` | high | owner-decision | `.agents/skills/architecture/**` | La skill de arquitectura ensena a NO usar los SPM propios: es el template sin rellenar |
 | `f-e008f6f` | high | owner-decision | `tools/ (propuesta: check-platform-adoption.sh + platform-adoption.conf)` | No hay ningun detector de OMISION: nada comprueba que el codigo use los mecanismos que AGENTS.md 3 prescribe |
@@ -61,3 +62,5 @@ Abiertos: **31** · Cerrados: 16 · Total: 47
 | `f-flag-placeholder` | fixed | Aplicado require_flag_values a resolution/reason: el mecanismo YA existia en el archivo y solo se us |
 | `f-known-flags-drift` | fixed | Test test_known_flags_cubre_el_usage: extrae los flags del USAGE y exige que KNOWN_FLAGS los cubra.  |
 | `f-test-id-decorativo` | fixed | Anadido test_close_id_inexistente_explica, que exige el mensaje en stderr y prohibe el traceback. Ve |
+| `f-1aa86bc8` | fixed | Arreglado en 43d9199. El guard dejo de ser lista negra: ahora exige que lo configurado SEA el host ( |
+| `f-a168fe6d` | fixed | Arreglado en 43d9199. El test se reescribio para afirmar config == nil en vez de baseURL.scheme != h |

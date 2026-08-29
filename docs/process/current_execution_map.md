@@ -48,13 +48,30 @@
 
 ## Próximo paso
 
-1. **Commitear el slice 0 — es lo único que queda de esta cadena.** Todo lo anterior ya ocurrió:
-   PRD 0001 en `Status: ✅ Approved`, `verify-run` con la evidencia firmada contra el diff staged,
-   `security-reviewer` 🟡 AMBER con sus 2 findings no bloqueantes en el ledger (`f-3236fb0`
-   cerrado), y `reviewer` sobre el árbol definitivo. Los 4 bloqueantes del design-review eran de
-   documento y están cerrados: troceo por slices en §5b, contrato republicado en §6.3 con ids
-   inmutables, forma prohibida de C5 escrita, e idioma fuente decidido (**`es`**, con
-   `developmentRegion` añadido a OQ-3).
+1. **Slice 0 commiteado y publicado.** `origin/main` incluye la vertical, los tres refactors y
+   la reescritura de las skills; CI (`Gates`) pasa en verde sobre ese árbol —el estado real de
+   sus ejecuciones se consulta con `gh run list --repo hiramvazquez/iOSAppBaseline`, no se
+   escribe aquí—. Los 4 bloqueantes del design-review eran de documento y están cerrados:
+   troceo por slices en §5b, contrato republicado en §6.3 con ids inmutables, forma prohibida
+   de C5 escrita, e idioma fuente decidido (**`es`**, con `developmentRegion` en OQ-3).
+
+   > **El hallazgo que reordenó las prioridades (2026-08-29, owner).** El módulo de referencia
+   > **no usaba la mitad de `AppFoundation`**: ni `Coordinator`/`Router`, ni `Container`/`@Inject`,
+   > pese a que `AGENTS.md` §3 los prescribe (`f-f2a4ca6e`). La causa raíz no fue descuido del
+   > agente: `platforms/ios.md` —lectura OBLIGATORIA para tocar un ViewModel— **no mencionaba
+   > ni una vez los SPM propios** y enseñaba las alternativas a mano; el agente obedeció
+   > (`f-a3b6dafc`). Y el `design-reviewer` **sí lo había cazado por escrito dos horas antes
+   > del commit** (H-7 de su 6ª pasada): lo que falló fue el cierre, porque ese sub-agente
+   > **no deja marker**, así que seis veredictos RED no impidieron nada.
+   >
+   > **Hecho el 2026-08-29:** reescritas `architecture/SKILL.md`, `platforms/ios.md`,
+   > `domain/SKILL.md` y `security/SKILL.md` contra una auditoría de los dos paquetes, y
+   > rellenados los FILL de `process/references/**`. Las skills que gobiernan código de
+   > producto quedan a cero FILL (`grep -rc FILL .agents/skills`).
+   >
+   > **Pendiente y sin empezar:** el refactor que adopta `Coordinator` + `Container` en el
+   > código (`f-f2a4ca6e`, owner-decision). Va **después** de las skills a propósito: un
+   > refactor hecho leyendo la skill vieja se habría desviado igual.
 2. **Tres cambios de arquitectura acordados (2026-08-28) — los tres cerrados.**
    (a) sacar el mapeo transporte→dominio a un `TransportError` **en `CoreNetworking`** (OQ-18,
    2026-08-28) — ✅ **HECHO el 2026-08-28**, publicado como `CoreNetworking 0.1.4` (revisión

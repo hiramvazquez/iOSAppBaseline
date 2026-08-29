@@ -80,13 +80,48 @@ acción sea la que pida aprobación humana — y que quede auditada.
 > de `.env`/secretos. Eso rompe (1) y (3) parcialmente **por defecto**. Lo que introduce riesgo
 > nuevo es casi siempre un MCP añadido sin pensar en el vértice (2).
 
-## §Por plataforma
+## §Por plataforma — iOS (este proyecto)
 
-<!-- FILL: completa lo de TU stack. Opiniones por defecto: -->
-- **iOS:** secretos/sesión → Keychain. Archivos sensibles → `NSFileProtection`. App Lock biométrico opcional.
-- **Android:** `EncryptedSharedPreferences` / Keystore; `EncryptedFile`. Sin claves en `strings.xml` ni en el APK.
-- **Web:** sesión en cookies `httpOnly`+`Secure`, no `localStorage`. Secretos solo server-side, nunca en `NEXT_PUBLIC_*`/bundle. CSP + sanitización.
-- **Backend/DB:** RLS/policies activas; service-role keys solo server-side; rota credenciales expuestas de inmediato.
+**Dónde vive la credencial de TMDB.** En `Config/Secrets.xcconfig`, que está **gitignorado**;
+`Config/Secrets.example.xcconfig` es la plantilla que sí se versiona. El `#include?` es
+opcional a propósito: **sin el archivo el proyecto compila igual** y falla en runtime con un
+mensaje claro, así que un clon recién hecho nunca se rompe por un archivo que no está.
+
+**La credencial va en CABECERA, nunca en la query.** No es preferencia: el
+`LoggingInterceptor` de CoreNetworking redacta los headers sensibles **siempre y sin opt-out**
+(`authorization`, `cookie`, `x-api-key`, y cualquiera que contenga `token`, `secret`,
+`password`…), pero **loguea la URL entera sin redactar nada**. Un token en la query acaba en
+los logs del sistema; en un header, no.
+
+```swift
+defaultHeaders: ["Authorization": "Bearer \(token)"]   // ✅ redactado en logs
+queryItems: [URLQueryItem(name: "api_key", value: token)]   // ❌ acaba en los logs
+```
+
+**Falla cerrada ante la ausencia de credencial.** `TMDBConfiguration.live()` devuelve
+`Optional` y el composition root sustituye por un repositorio que lanza `.unauthorized`. No se
+construye un cliente que solo produciría 401s, y se rechaza el **placeholder** del ejemplo
+explícitamente — un 401 en runtime no le dice a nadie «no rellenaste el xcconfig».
+
+**Errores al usuario: vagos sobre la causa.** El copy de `.unauthorized` **no menciona la
+credencial** — al usuario no le sirve y a un atacante sí. Lo verifica un test que recorre
+`MoviesError.allCases` buscando términos prohibidos (`token`, `bearer`, `authorization`…).
+
+**Y la garantía por construcción**, que es más fuerte que ese test: ningún caso de
+`MoviesError` ni de `TransportError` lleva un `String` asociado, así que **no hay por dónde
+filtrar** el mensaje crudo del servidor. `APIError.custom` sí lo arrastra, y por eso
+`TransportError(from:)` lo descarta quedándose solo con el `statusCode`. Si algún día añades un
+payload `String` a un error propagable, **ese argumento se cae** y hace falta un test real.
+
+**Storage.** Hoy esta app **no persiste nada** y no tiene sesión de usuario: no hay Keychain
+porque no hay nada que guardar. Cuando lo haya: secretos y sesión → **Keychain**; archivos
+sensibles → `NSFileProtection`; **jamás** `UserDefaults` en claro. Eso es decisión de
+arquitectura y va a `docs/process/decisions/` antes de escribirse.
+
+**Pinning.** `CoreNetworking` lo soporta (SPKI SHA-256, formato TrustKit, decisión de 3
+estados) pero **este proyecto no lo activa**: `sslPinning: nil` deja la validación TLS normal
+del sistema. Activarlo es decisión del owner — pinnear contra una API de terceros como TMDB
+obliga a rotar la app cada vez que ellos roten certificado.
 
 ## Si encuentras un secreto ya commiteado
 

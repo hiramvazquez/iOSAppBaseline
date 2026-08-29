@@ -22,4 +22,6 @@
 - Un dato vive en **un solo lugar**; los demás lo referencian (evita drift).
 - El racional aún vivo va en `lessons_learned.md`; el mecanizado, en `lessons_archive.md`.
   Ninguno infla `AGENTS.md`, que se mantiene terso.
-- <!-- FILL: añade aquí los docs propios de tu org (runbooks, security baseline, etc.). -->
+- **Docs propios de la org: ninguno todavía** (proyecto de un solo owner, sin runbooks ni
+  security baseline externos). Cuando los haya, se enlazan aquí. Declararlo vacío es
+  deliberado: un mapa que omite la sección no distingue «no hay» de «se nos olvidó».

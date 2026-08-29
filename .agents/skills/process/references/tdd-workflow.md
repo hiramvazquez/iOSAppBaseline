@@ -29,11 +29,17 @@ la implementación.** Si el test pasa antes de implementar, no prueba lo que cre
 
 - **Framework:** **Swift Testing** (Xcode 16+, `import Testing`, `@Test`, `#expect`, `#require`).
   XCTest sigue válido para casos legacy y UI tests (`import XCTest`, `XCTestCase`).
-- **Correr:**
-  - `swift test` — paquetes SwiftPM; rápido para lógica pura.
-  - `xcodebuild test -scheme <Scheme> -destination 'platform=iOS Simulator,name=iPhone 16'`
-  - <!-- FILL: el comando/scheme/destino reales de tu proyecto. -->
-- **Dónde viven:** target de tests espejo del de producción (`Sources/Domain` → `Tests/DomainTests`).
+- **Correr:** **`bash tools/verify-run.sh`** — es el comando de este proyecto y el único que
+  deja evidencia firmada contra el diff staged, que es lo que el gate de commit exige.
+  - El comando crudo que ejecuta vive en **`tools/verify.conf`** (fuente única, compartida con
+    el paso 6 del Anillo 3). **No lo dupliques aquí**: si necesitas verlo, ábrelo.
+  - Los SPM propios se prueban con `swift test` desde su propio repo — rápido, sin simulador.
+    Ojo: al haber dos productos, el scheme agregado es `CoreNetworking-Package`, no
+    `CoreNetworking`.
+  - Flujo que el gate exige: **stagea → `bash tools/verify-run.sh` → commitea**. Tocar
+    cualquier archivo staged después invalida el marker y hay que re-correr.
+- **Dónde viven:** `Tests/UnitTests/<Feature>/` — una carpeta **por módulo**, no por capa
+  (el árbol por capa que describe el PRD 0001 §5 no es lo entregado; manda el árbol real).
 - **Naming por comportamiento:** `loadProfile_whenOffline_returnsCachedValue`.
 
 ## Patrones iOS clave

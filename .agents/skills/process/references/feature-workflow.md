@@ -31,7 +31,7 @@
 | 2.2 | 🔴 **RED** — escribe el test del comportamiento/riesgo actual y míralo FALLAR por la razón correcta |
 | 2.3 | 🟢 **GREEN** — implementación MÍNIMA que lo pasa (scope = el test, nada de más) |
 | 2.4 | ♻️ **REFACTOR** — limpia en verde + cubre cada rama observable, recuperación y límite aplicable. Respeta capas (`architecture/SKILL.md`) |
-| 2.5 | `<!-- FILL: build+test -->` verde + `bash tools/check-drift.sh` sin errores nuevos antes de cada commit |
+| 2.5 | `bash tools/verify-run.sh` verde (firma la evidencia contra el diff staged) + `bash tools/check-drift.sh` sin errores nuevos antes de cada commit |
 
 ## Fase 3 — Pre-ship
 

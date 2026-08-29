@@ -61,7 +61,12 @@ el mal uso compila.
 Antes de escribir un detector para un error, pregúntate si puedes rediseñar el tipo
 para que ese error no exista.
 
-**En el harness:** `<!-- FILL -->` en `AGENTS.md §2` — activa el modo estricto de tu stack.
+**En el harness:** el modo estricto de `AGENTS.md §2`, ya cableado en `project.yml` para los
+dos targets — `SWIFT_TREAT_WARNINGS_AS_ERRORS` · `SWIFT_STRICT_CONCURRENCY=complete` ·
+`SWIFT_APPROACHABLE_CONCURRENCY` · `SWIFT_DEFAULT_ACTOR_ISOLATION=MainActor` — y su equivalente
+en el `Package.swift` de cada SPM propio. Un agente que **no puede expresar** el estado
+inválido no lo escribe: por eso los `switch` sobre enums de paquete van sin `default:`, y por
+eso un id de película es `MovieID` y no un `Int`.
 
 ## Nivel 1 — Verificación determinista in-loop
 

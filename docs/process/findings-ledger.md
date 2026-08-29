@@ -3,16 +3,16 @@
 > **GENERADA — NO editar a mano.** Fuente: `tools/findings/ledger.jsonl`.
 > Regenerar: `bash tools/findings/findings.sh render`.
 
-Abiertos: **25** · Cerrados: 15 · Total: 40
+Abiertos: **31** · Cerrados: 16 · Total: 47
 
 ## Abiertos
 
 | id | sev | tier | área | título |
 |---|---|---|---|---|
 | `f-29c26642` | high | owner-decision | `docs/process/reviews/2026-08-28-design-review-prd-0001.md:180-194` | El design-reviewer SI cazo la omision de Coordinator/DI (6a pasada, H-7) y el hallazgo se evaporo |
+| `f-8720114e` | high | owner-decision | `spm-pro/AppFoundation/README.md:144-157` | El README de AppFoundation ensena el patron que rompe la identidad de los ViewModels |
 | `f-a3b6dafc` | high | owner-decision | `.agents/skills/architecture/**` | La skill de arquitectura ensena a NO usar los SPM propios: es el template sin rellenar |
 | `f-e008f6f` | high | owner-decision | `tools/ (propuesta: check-platform-adoption.sh + platform-adoption.conf)` | No hay ningun detector de OMISION: nada comprueba que el codigo use los mecanismos que AGENTS.md 3 prescribe |
-| `f-ed8f24f6` | high | owner-decision | `CoreNetworking/Sources/CoreNetworking/SessionDelegates.swift` | El delegado de SSL pinning no esta verificado: invertir su condicion no rompe ningun test |
 | `f-f2a4ca6e` | high | owner-decision | `Sources/App/**` | El modulo de referencia NO usa Coordinator/Router ni Container/@Inject de AppFoundation, que AGENTS.md SS3 prescribe |
 | `f-2db8ecf0` | medium | owner-decision | `docs/process/current_execution_map.md:56 / tools/` | Nada contrasta un diseno prescrito en docs contra layers.conf: se corrigio el caso (f-3480a974) y no la clase |
 | `f-52ef5f6d` | medium | auto-fix | `Sources/Data/Movies/TMDBPopularMoviesRepository.swift:35` | Decision pendiente: CancellationError prescrito vs .unknown implementado |
@@ -21,8 +21,11 @@ Abiertos: **25** · Cerrados: 15 · Total: 40
 | `f-71c669cc` | medium | owner-decision | `scripts/agent-hooks/reviewer-gate.sh` | El veredicto del design-reviewer no tiene consecuencia mecanica: seis pasadas RED y el commit paso igual |
 | `f-7b10426e` | medium | owner-decision | `Tests/UnitTests/Movies` | T-S-1 (sentinela de credencial) sin escribir: decidir escribirlo o aceptar la cobertura actual |
 | `f-85c818b4` | medium | owner-decision | `AGENTS.md:5 / .agents/skills/process/references/tdd-workflow.md:18` | El paso rojo del TDD no lo observa nada, y la trayectoria muestra que no ocurrio en el slice 0 |
+| `f-8ab6c2ad` | medium | owner-decision | `spm-pro/AppFoundation/Sources/AppFoundation/Navigation/Views/CoordinatorView.swift` | CoordinatorView no tiene ni un solo test, y es donde vive la trampa mas cara del paquete |
 | `f-8e30ad43` | medium | auto-fix | `scripts/agent-hooks/session-end.sh:51-58` | La judge-queue encolo un SID sin trayectoria y con commits=0 la sesion que escribio el slice 0 |
 | `f-b6c162d8` | medium | owner-decision | `docs/process/prds/0001-vertical-de-referencia-peliculas.md:171-175 (propuesta: tools/check-prd-tree.sh)` | El arbol de archivos del PRD 5 se comparo con lo entregado a ojo, y la pasada manual perdio los tres archivos que faltaban |
+| `f-db694460` | medium | owner-decision | `spm-pro/AppFoundation/Sources/AppFoundation/DependencyInjection/Container.swift` | Container: registrar transient o scoped sobre un singleton ya materializado es silenciosamente inefectivo |
+| `f-e6743298` | medium | owner-decision | `spm-pro/CoreNetworking/Sources/CoreNetworking/RequestInterceptor.swift:130` | Privacidad invertida en los logs de red: la URL va private y el mensaje del servidor va public |
 | `f-f17a5860` | medium | owner-decision | `tools/check-layers-coverage.sh` | Nada vigila que los globs de skill-matrix.conf no enmudezcan |
 | `f-update-sin-guard` | medium | auto-fix | `tools/findings/findings.sh:242` | update bypasa el guard de terminalidad: resucita un finding cerrado y pisa su resolucion |
 | `f-13afde3c` | low | auto-fix | `scripts/agent-hooks/ (capture de trayectoria)` | La trayectoria registra cd como path en 736 de 2143 Bash: el instrumento del nivel 9 es ciego al 55% del trabajo |
@@ -30,9 +33,12 @@ Abiertos: **25** · Cerrados: 15 · Total: 40
 | `f-32db9901` | low | owner-decision | `CoreNetworking/Sources/CoreNetworking/SessionDelegates.swift:34` | El aviso de fallo de pinning no esta verificado: invertir su condicion silencia el log |
 | `f-5529624d` | low | owner-decision | `tools/verify.conf` | El umbral real del test-timeout no esta fijado en el repo |
 | `f-6453846` | low | owner-decision | `docs/process/prds/0001-vertical-de-referencia-peliculas.md (DoST NO-TOUCH)` | El comando NO-TOUCH del DoD solo cubre el subconjunto tooling/meta del bloque |
+| `f-66f86136` | low | owner-decision | `.agents/skills/architecture/platforms/` | Las skills de web y android son 10 FILL que nunca se rellenaran en un proyecto iOS |
 | `f-975e3cb1` | low | auto-fix | `tools/semgrep-scan.sh:94` | semgrep-scan.sh --all revienta con TARGETS vacio bajo bash 3.2 (unbound variable) |
 | `f-b6f2c1a4` | low | owner-decision | `.claude/rules/10-ios-ui.md + Sources/Features/Movies/PopularMoviesViewModel.swift` | Unificar el nombre de la intencion: vm.send(...) vs handle(_:) |
 | `f-d4b58c90` | low | auto-fix | `docs/process/current_execution_map.md` | current_execution_map.md punto 1 describe commitear el slice 0 como pendiente, ya commiteado |
+| `f-de18ddb` | low | auto-fix | `tools/harness-report.sh:59` | El contador de FILL de harness-report cuenta los FILL-HECHO como pendientes |
+| `f-e420ff1e` | low | owner-decision | `CLAUDE.md (seccion Maquinaria exclusiva de Claude Code)` | CLAUDE.md anuncia solo /goal y ya hay 5 comandos: los otros 4 son indescubribles |
 | `f-e4a8a982` | low | auto-fix | `tools/check-layers-coverage.sh` | check-layers-coverage: la exencion del bloque universal es posicional, no semantica |
 
 ## Cerrados
@@ -40,6 +46,7 @@ Abiertos: **25** · Cerrados: 15 · Total: 40
 | id | estado | resolución |
 |---|---|---|
 | `f-1571535f` | fixed | Resuelto en CoreNetworking 0.1.2, en esta misma sesion: NetworkingConfiguration.makeDecoder es una f |
+| `f-ed8f24f6` | fixed | OBSOLETO: ya no es cierto. El commit 71e0982 (test(pinning): el delegado que decide en runtime, por  |
 | `f-3236fb0` | fixed | El gate corrio el 2026-08-28: security-reviewer VERDICT AMBER, 2 findings, ninguno bloqueante, marke |
 | `f-f6b72573` | fixed | OQ-17 resuelta por el owner (2026-08-28): C2 se RETIRA del contrato. El puerto NO deduplica; la unic |
 | `f-31902e86` | fixed | Refactor (b), 2026-08-28. load() suelto sustituido por enum Action + handle(_:) en PopularMoviesView |

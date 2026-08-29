@@ -236,7 +236,10 @@ enum TMDBConfiguration {
         guard let host = leer("TMDBHost"), !host.isEmpty,
               let token = leer("TMDBReadAccessToken"),
               !token.isEmpty, token != placeholder,       // falla cerrada ante el placeholder
-              let baseURL = URL(string: "https://\(host)")
+              let baseURL = URL(string: "https://\(host)"),
+              // Lo configurado tiene que SER el host, verbatim. Ver abajo.
+              baseURL.host?.lowercased() == host.lowercased(),
+              baseURL.user == nil, baseURL.password == nil
         else { return nil }                               // sin credencial NO se construye cliente
 
         return NetworkingConfiguration(
@@ -254,6 +257,40 @@ Cuatro decisiones que van juntas: **cabecera y no query** · **devuelve `Optiona
 crashear** (sin credencial no se construye un cliente que solo produciría 401s) · **rechaza el
 placeholder explícitamente** (un 401 no dice «no rellenaste el xcconfig») · **la lectura del
 bundle es inyectable** (si no, la lógica es intestable justo en CI).
+
+### `TMDBHost` es SOLO el host, y esa línea es de seguridad
+
+El esquema lo impone el código y **no se puede configurar**: el token viaja en
+`Authorization: Bearer`, así que un `http://` en un `.xcconfig` lo pondría en claro en la red
+(`security/SKILL.md` regla 5). Tampoco lleva el `/3`: `APIService` compone
+`baseURL.appendingPathComponent(request.path)` y los requests ya declaran `/3/...` — un host
+con versión produce `…/3/3/movie/popular` y un 404 en CADA petición, que **ningún test de
+repositorio ve** porque esos construyen su propia `baseURL`.
+
+La comparación `baseURL.host == host` es la que sostiene todo eso, y llegó por el camino largo:
+
+| Intento | Por qué se cayó |
+|---|---|
+| `!host.contains("://")` | `api.themoviedb.org@attacker.com` no lleva `://`, y el `@` degrada lo de su izquierda a **userinfo**: el host real pasa a ser `attacker.com` y el Bearer viaja allí. `//evil.com` colaba además un `baseURL.host == nil` que hacía saltar el `precondition` de `NetworkingConfiguration` — un **crash**, lo contrario de fallar cerrada. |
+| allow-list de charset **+** la comparación | Verde, pero la **mutación** la descartó: quitar cualquiera de las dos dejaba los tests en verde, o sea que ninguna era individualmente verificable. |
+| **solo la comparación** (lo que hay hoy) | Quitarla reabre **todos** los bypasses de las filas de arriba: los dos esquemas, `/3`, `?`, `#`, `%2F` y el homógrafo cirílico (que `URL` convierte a `xn--pi-6kc…`, y por eso deja de coincidir). Y uno de ellos **no falla: mata el proceso** — `//evil.com` deja `host == nil` y vuelve a disparar el `precondition` de la fila 1. Ese es el más grave, y el que no verás como aserción roja. |
+
+`user == nil` y `password == nil` son **defensa en profundidad sin mutante propio**, y conviene
+decirlo así en vez de venderlas como necesarias: la comparación de host ya las subsume, porque
+para que `user` no sea `nil` tiene que haber un `@`, y entonces `baseURL.host` (lo de la derecha)
+nunca puede ser igual al string configurado entero. Medido: borrarlas deja los 10 tests en verde.
+
+Se conservan igualmente —es una frontera de seguridad y no cuestan nada— pero quedan
+**declaradas** como lo que son. La primera versión de este párrafo afirmaba lo contrario ("son
+lo único que caza el userinfo", "cada línea tiene su propio mutante") y era falso; lo cazó el
+`reviewer` mutándolas. Que el error apareciera en el mismo cambio que arregla esa misma clase de
+defecto es la mejor prueba de por qué el que escribe no puede ser el que aprueba (§14.2).
+
+Efecto lateral **aceptado y declarado**: prohíbe puerto explícito (`host:8080`) e IPv6 entre
+corchetes. Hoy nada del repo los necesita; si algún día hacen falta, se cambia ahí y con su test.
+
+> Moraleja transferible: **enumerar lo prohibido siempre deja algo fuera**. Cuando puedas,
+> compara contra lo que esperabas en vez de listar lo que temes.
 
 `environment` es **puro metadato**: nada del paquete lo lee. El timeout es **por request**, y
 el pinning entra por el init de `APIService`, no por `NetworkingConfiguration`.

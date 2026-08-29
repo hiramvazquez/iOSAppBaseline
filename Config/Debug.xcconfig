@@ -8,3 +8,8 @@
 
 SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG
 ONLY_ACTIVE_ARCH = YES
+// Solo el HOST: el esquema lo impone el codigo (https, no configurable) y el
+// prefijo /3 lo traen ya los `path` de cada request. Ver TMDBConfiguration.
+// Vive aqui y no en Secrets.xcconfig para que un clon recien hecho tenga host
+// por defecto y solo le falte el token.
+TMDB_HOST = api.themoviedb.org

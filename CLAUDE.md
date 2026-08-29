@@ -16,7 +16,14 @@
 
 - **Skills:** `.claude/skills` es un symlink a `.agents/skills` (la base compartida). Cárgalas según la matriz §11 de `AGENTS.md` (fuente única: `tools/skill-matrix.conf`).
 - **Sub-agentes:** viven en `.claude/agents/*.md`. Invócalos con la tool `Agent` según su `description`. Catálogo en `.claude/agents/README.md`.
-- **Comandos:** `/goal <objetivo>` fija condiciones verificables y delega el cierre en el `reviewer` (nivel 8).
+- **Comandos** (`.claude/commands/*.md` — esta lista es la del directorio, sin detector que
+  la vigile: si añades el sexto, añádelo aquí en el mismo commit):
+  - `/status` — el estado real en una pantalla: fase, gates, niveles mudos, findings, y qué
+    falta ordenado por coste. Solo lectura.
+  - `/goal <objetivo>` — fija condiciones VERIFICABLES y delega el cierre en el `reviewer` (nivel 8).
+  - `/historia <idea>` — convierte una idea suelta en una historia de backlog con criterios verificables.
+  - `/reconciliar [área]` — caza el drift entre lo que la spec AFIRMA y lo que el código ES.
+  - `/adoptar` — entrevista de stack y rellena los `<!-- FILL -->` en orden de impacto.
 - **Hooks (Anillo 2):** definidos en `.claude/settings.json`. Todos se invocan a través de
   `scripts/agent-hooks/run-hook.sh`, que comprueba con `bash -n` que el hook y sus libs parsean
   **antes** de ejecutarlos: si no parsean, avisa por stderr y deja pasar. Sin ese lanzador, un

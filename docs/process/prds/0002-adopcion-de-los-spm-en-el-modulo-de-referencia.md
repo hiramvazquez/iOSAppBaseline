@@ -68,24 +68,39 @@ cambiar una sola línea de comportamiento observable para el usuario.
 
 Medible, y verificable por comando:
 
-| Condición | Comando |
+> ⚠️ **Los criterios se verifican sobre SÍMBOLOS, no sobre texto.** La primera versión de esta
+> tabla usaba `grep -rl "CoordinatorView\|any Router<" Sources/`, y el design-review demostró que
+> **ya salía verde antes de escribir una línea**: casaba un comentario de `MoviesScreenStore.swift:5`
+> que menciona `CoordinatorView` para explicar la Trampa C. Es exactamente lo que `layers.conf:6-9`
+> declara que no se hace («trabaja sobre el GRAFO DE IMPORTS, NO sobre el cuerpo del archivo;
+> comentarios y strings no cuentan»). Por eso el criterio fuerte es **el compilador**, con el
+> patrón que este repo ya usa en `SmokeTests.swift`: un test que USA el tipo no compila si el
+> tipo no está enlazado de verdad.
+
+| Condición | Cómo se verifica |
 |---|---|
-| El composition root resuelve por `Container` | `grep -r "register(modules:" Sources/App/` |
-| Existe un `DependencyModule` por feature | `grep -rl ": DependencyModule" Sources/Features/` |
-| La navegación pasa por `Coordinator`/`Router` | `grep -rl "CoordinatorView\|any Router<" Sources/` |
-| Ninguna View construye un `NavigationStack` | `! grep -rn "NavigationStack" Sources/` |
+| El composition root resuelve por `Container` | test de la fase 1 que resuelve el puerto desde un contenedor propio (G3) — compila y pasa, o no existe |
+| Existe un `DependencyModule` | `grep -rn "^\s*struct .*: DependencyModule\|^\s*final class .*: DependencyModule" --include=*.swift Sources/App/` |
+| La navegación pasa por `CoordinatorView` | `grep -rn "CoordinatorView(" --include=*.swift Sources/ \| grep -v "^\s*//"` — la LLAMADA, no la mención |
+| Ninguna View construye un `NavigationStack` | `! grep -rn "NavigationStack(" --include=*.swift Sources/` — con paréntesis: la construcción, no la palabra |
 | La suite sigue verde y firmada | `bash tools/verify-run.sh` |
 | Sin regresión de capas ni drift | `bash tools/check-layers.sh` · `bash tools/check-drift.sh` |
 
 ## 4. Filosofía / principios
 
-1. **Comportamiento congelado.** Es un refactor: el usuario no debe notar nada. Todo test que
-   pasaba antes pasa después, **o se explica cuál cambió y por qué** — si un test codificaba una
-   decisión y no un hecho, se cambian ambos y se justifica en el propio test.
+1. **Comportamiento congelado, con una salvedad declarada.** Es un refactor: el usuario no debe
+   notar nada. Todo test que pasaba antes pasa después, **o se explica cuál cambió y por qué** — si
+   un test codificaba una decisión y no un hecho, se cambian ambos y se justifica en el propio test.
+   **La salvedad:** la fase 1 introduce una clase de fallo que hoy no existe — un registro ausente
+   o bajo el tipo equivocado deja de ser un error de compilación y pasa a ser un `fatalError` en
+   runtime (ver §12 y OQ-4). Decir «nada cambia» sin nombrarlo sería falso.
 2. **Constructor injection primero; `@Inject` solo con escape hatch.** `@Inject` resuelve de
    `Container.shared` y cachea para siempre, así que un tipo con `@Inject` **sin `init(container:)`
    no se puede testear con un contenedor propio** — justo lo que §3 exige. Ese detalle salió de la
    auditoría del paquete, no de su README, y es la razón de que la regla no sea estilística.
+   **Y nunca para dependencias cuyo lifecycle no sea singleton:** `@Inject` cachea la primera
+   resolución para siempre, así que convierte un `.transient` en singleton **en silencio**, con
+   escape hatch o sin él. Eso no es un problema de testabilidad sino de semántica en producción.
 3. **Adoptar el mecanismo no es adoptar su ceremonia.** Si una pieza del paquete no aporta aquí,
    se declara por qué en vez de meterla para cumplir. Un módulo de referencia que usa algo
    «porque toca» enseña peor que uno que explica por qué no lo usa.
@@ -94,14 +109,17 @@ Medible, y verificable por comando:
 
 ```
 Sources/Features/Movies/MoviesRoute.swift              ← [SLICE-FUTURO] fase 2: enum de rutas (Hashable)
-Sources/Features/Movies/MoviesModule.swift             ← [SLICE-FUTURO] fase 1: DependencyModule, registra adapters
+Sources/App/Movies/MoviesModule.swift                  ← [SLICE-FUTURO] fase 1: DependencyModule, registra adapters
 Sources/Features/Movies/PopularMoviesViewModel.swift   ← TOCAR: recibe any Router; enum Intent
 Sources/Features/Movies/PopularMoviesView.swift        ← TOCAR: deja de poseer identidad (f-54d7ee41)
 Sources/App/BaselineApp.swift                          ← TOCAR: Container + Coordinator
 Sources/App/AppCoordinatorView.swift                   ← [SLICE-FUTURO] fase 2: Coordinator + CoordinatorView
 Sources/App/Movies/MoviesScreenStore.swift             ← TOCAR: pasa a estar justificado de verdad
 Tests/UnitTests/Movies/MoviesModuleTests.swift         ← [SLICE-FUTURO] fase 1: registra lo que promete
-Tests/UnitTests/Movies/MoviesRouteTests.swift          ← [SLICE-FUTURO] fase 2: el VM emite intención, no navega
+Tests/UnitTests/Movies/MoviesRouteBuilderTests.swift    ← [SLICE-FUTURO] fase 2: G4, el closure usa el store
+Tests/UnitTests/Movies/PopularMoviesViewModelTests.swift ← TOCAR: 10 llamadas a handle(_:) que la fase 3 renombra
+Tests/UnitTests/Movies/MoviesScreenStoreTests.swift    ← TOCAR: handle(_:) + dos PopularMoviesViewModel(repository:)
+Tests/UnitTests/SmokeTests.swift                       ← TOCAR/REVISAR: lee Container.shared y asevera tryResolve == nil
 ```
 
 ### NO-TOUCH (contrato — el implementador NO toca esto)
@@ -117,9 +135,15 @@ AGENTS.md · CLAUDE.md · docs/process/prds/_template.md
 Sources/Domain/**
     ← el dominio NO cambia. Si el refactor exige tocarlo, el diseño está mal:
       Domain no puede importar AppFoundation ni CoreNetworking (layers.conf:41)
-spm-pro/**
-    ← los paquetes no se modifican aquí. Lo que haya que arreglar allí se
-      registra y se publica aparte (f-8720114e ya está abierto)
+iOSAppBaseline.xcodeproj/…/Package.resolved
+    ← NO se bumpea el pin en este PRD (hoy: AppFoundation 0.1.1, CoreNetworking
+      0.1.4). Ojo: `project.yml` los trae con `from: 0.1.0`, así que un `resolve`
+      puede saltar solo dentro del rango — lo que fija el build reproducible es
+      este lockfile, no el rango. Si un arreglo de los paquetes (f-8720114e)
+      hace falta, es OTRO PRD.
+      (La versión anterior decía `spm-pro/**`, ruta que NO existe en este repo:
+      los paquetes entran por URL remota. Una prohibición sobre algo inexistente
+      no prohíbe nada.)
 ```
 
 ## 5b. Fases entregables
@@ -127,12 +151,35 @@ spm-pro/**
 | Fase | Entrega (mergeable) | Depende de |
 |---|---|---|
 | **1 — DI** | `MoviesModule` + `Container` en el composition root. Sin cambio visible. Los tests registran fakes en contenedores propios. | — |
-| **2 — Navegación** | `MoviesRoute` + `AppCoordinatorView` + `Coordinator`. La View deja de poseer identidad; `MoviesScreenStore` pasa a estar justificado. | 1 |
+| **2 — Navegación (RECORTADA)** | `MoviesRoute` + `AppCoordinatorView` + `Coordinator` + `CoordinatorView`. La View deja de poseer identidad; `MoviesScreenStore` pasa a estar justificado. **NO entra `any Router` en el ViewModel** — ver abajo. | 1 |
 | **3 — Convención de intención** | `enum Action` → `Intent` + `send(_:)`, alineado con `.claude/rules/10-ios-ui.md`. Cierra `f-b6f2c1a4`. | 2 |
 
-**Por qué en este orden:** la DI no toca UI y deja la base verde; la navegación necesita el grafo
-ya armado por `Container` para no arrastrar dos cambios a la vez; y el renombrado va al final
-porque toca los mismos archivos que la fase 2 y hacerlo antes obligaría a tocarlos dos veces.
+**Por qué en este orden — corregido tras el design-review.** La primera versión decía que «la
+navegación necesita el grafo ya armado por `Container`». **Es falso**: la fase 2 compila
+perfectamente con el grafo a mano, porque `BaselineApp.repositorio()` ya devuelve
+`any PopularMoviesRepository` y el store solo necesita esa factoría. Me inventé una dependencia
+técnica que no existe.
+
+La razón real es de **fricción, no de dependencia**: ambas fases editan `BaselineApp.swift`, así
+que se serializan para no colisionar, y la DI va primero porque su verificación (G3) no toca UI y
+deja un diff pequeño. En paralelo no, por lo mismo.
+
+**Y la fase 3 se adelanta.** Tal como estaba, la fase 2 escribiría tests nuevos contra
+`handle(_:)`/`Action` y la fase 3 los renombraría acto seguido. Hacer el renombrado **antes** es
+más barato —es mecánico e independiente— y desactiva la colisión del `typealias Action` **antes**
+de la fase que mete tipos de AppFoundation en esa clase. Orden final: **3 → 1 → 2**.
+
+### Por qué `any Router` NO entra en la fase 2
+
+Con `MoviesRoute` de un solo caso **no hay nada que empujar**: `router` entraría al ViewModel
+como dependencia con **cero call sites** en `Sources/`, y su test solo podría aseverar una llamada
+que el código de producto nunca hace — un test que pasa con cualquier implementación, prohibido
+por AGENTS.md §5. Este repo ya pagó esto una vez: `PopularMoviesViewModel.swift:36-46` dedica once
+líneas a explicar por qué `.reintentar` existe «sin call site en `Sources/`». No se reincide con
+una dependencia entera.
+
+Es §4.3 aplicado a sí mismo: adoptar el mecanismo no es adoptar su ceremonia. **El `Router` viaja
+con el slice de detalle**, que es cuando hay a dónde navegar.
 
 **La fase 3 es un renombrado con razón técnica, no estética:** `AppFoundation` declara
 `public typealias Action`, y un `enum Action` anidado en un ViewModel **lo sombrea dentro de esa
@@ -176,15 +223,38 @@ línea la impone el tipo, no la disciplina.
 
 | # | Escenario | Cómo se verifica |
 |---|---|---|
-| G1 | La app lista películas exactamente igual que antes | suite existente, sin cambios |
+| G1 | La app lista películas igual que antes, **en lógica** | suite existente, sin cambios. **NO cubre la UI** — ver recuadro |
 | G2 | Sin credencial, la pantalla muestra el error de siempre | test existente de `SinCredencialRepository` |
 | G3 | El módulo de DI registra lo que promete | test nuevo, en contenedor propio, **sin tocar `Container.shared`** |
-| G4 | El ViewModel pide navegar y NO navega él | test nuevo con `Router` espía; asevera la intención emitida |
-| G5 | Un tipo con `@Inject` es testeable con contenedor propio | si alguno lo usa, tiene `init(container:)` |
+| G4 | **El closure de rutas USA el store, no construye el ViewModel inline** | test nuevo sobre el builder de rutas: invocarlo N veces con `.listado` y aseverar `construcciones == 1` en la factoría del store |
+| G5 | *(retirado — ver abajo)* | |
 
-**No hay golden de «al volver del detalle el listado conserva su contenido»**, y no es un olvido:
-ese escenario **necesita una segunda pantalla** para existir. Ver OQ-2, que es la decisión que
-más condiciona el valor de la fase 2.
+> ⚠️ **Corrección de la versión anterior, y es un error mío que conviene dejar escrito.** Este PRD
+> afirmaba que el golden «al volver del detalle el listado conserva su contenido» *«necesita una
+> segunda pantalla para existir»*. **Es falso: ese test ya existe y pasa** —
+> `Tests/UnitTests/Movies/MoviesScreenStoreTests.swift`, `conservaElContenido`, con la aserción
+> literal «volver atrás no puede vaciar el listado (escenario golden 6)». Lo cazó el design-review.
+>
+> Lo que de verdad **no** está cubierto es otra cosa, y es nueva de la fase 2: que el closure de
+> rutas de `CoordinatorView` **use** el store en vez de construir el ViewModel inline. Hoy no puede
+> fallar porque no hay closure; en cuanto la fase 2 lo cree, ahí reaparece la Trampa C. Y
+> `MoviesScreenStoreTests` no lo ve, porque prueba el store, **no a su consumidor** — el mismo
+> patrón que `f-ed8f24f6`: se prueba el validador y se prueba el mapeo, no el código que los
+> conecta. Eso es **G4**, y se puede escribir con una sola pantalla.
+
+> ⚠️ **G1 no puede detectar una regresión de UI, y decirlo importa.** La suite son ocho archivos de
+> ViewModel, store, DTOs, repositorio y mapeo de errores: **cero tests de vista, cero snapshot,
+> cero UI tests**. Y el cambio `NavigationStack` → `CoordinatorView` **sí toca la UI**: bajo
+> `CoordinatorView` la barra del sistema queda **oculta en todas las rutas** y `.navigationTitle`
+> deja de hacer nada (`ios.md` §3). Por eso la equivalencia visual se verifica con un **checklist
+> manual en simulador** —título visible, botón atrás, safe areas, pantalla de error, ES/EN—
+> anotado aquí al cerrar la fase 2. Es evidencia declarada y barata; lo que no vale es que un ítem
+> del DoD parezca automático y no lo sea.
+
+> **G5 retirado.** Decía «si alguno lo usa, tiene `init(container:)`». Es un condicional cuyo
+> antecedente será falso (OQ-3 apunta a «todo por constructor»: no hay analítica ni logger propio).
+> Un golden que no dispara no es un golden: suma un check verde que no mide nada. La regla sigue
+> viva donde corresponde, en `architecture/platforms/ios.md` §4.
 
 ## 10. Métricas de éxito
 
@@ -206,13 +276,17 @@ refactor interno y el comportamiento no cambia. Si una fase se tuerce, se revier
 | `@Inject` sin `init(container:)` haría los tests dependientes del contenedor global | G5 lo verifica; §4.2 lo prescribe |
 | Un `reviewer` que mute código deja el árbol sucio y tumba el `verify-marker` | Pasó el 2026-08-29: se pedirá mutar en `git worktree` aparte y comprobar `git status --porcelain` antes de terminar |
 | El refactor arregla el estado pero **no impide la reincidencia** | OQ-1 |
+| **La fase 1 degrada una garantía del compilador a un `fatalError` de runtime.** Hoy `repositorio() -> any PopularMoviesRepository` es total y el compilador la verifica. Con `Container`, `resolve` hace `fatalError` si falta el registro, y la trampa de la **clave por tipo estático** hace que registrar el concreto y resolver el protocolo explote **en runtime**. `validateRegistrations` es solo DEBUG. Choca con §4.1, con AGENTS.md §2 («hacer el error imposible por tipo antes que detectarlo después») y con §14.1 — y pone en riesgo la promesa escrita en `BaselineApp.swift:20-25`: *«un clon recién hecho nunca se rompe por un archivo que no está»* | **OQ-4.** No se da por neutro: o `tryResolve` + fallback a `SinCredencialRepository` en release (preserva la promesa del clon), o el composition root mantiene construcción tipada y `Container` se usa solo en la frontera de módulos |
 
 ## 13. Open Questions
 
 | # | Pregunta | Por qué la decide el owner |
 |---|---|---|
 | **OQ-1** | ¿Entra el **detector de omisión** (`f-e008f6f`) —que comprobaría que el código USA lo que §3 prescribe— en este PRD, en otro, o no entra? | Tocaría `tools/`, y §8 exige autorización explícita. **Sin él, este refactor arregla el estado pero no la causa**: el siguiente slice puede volver a desviarse y ningún gate lo vería |
-| **OQ-2** | ¿La fase 2 entra sola, o **junto con el slice de detalle**? | Con una sola pantalla, la protección de la Trampa C (`MoviesScreenStore`) **no es verificable de extremo a extremo**: no hay a dónde navegar ni desde dónde volver. Adoptar la navegación sin nada que navegar deja ese golden sin poder escribirse |
+| **OQ-2** *(reformulada tras el design-review)* | ¿La fase 2 entra **recortada** —`Coordinator` + `CoordinatorView` + `MoviesRoute`, con el golden G4 del builder de rutas, y **sin** `any Router` en el ViewModel, que viaja con el slice de detalle? | La versión anterior preguntaba si la fase 2 entraba sola, apoyándose en una afirmación **falsa** (que el golden de «volver del detalle» no podía escribirse). Sí puede, y de hecho ya existe. La pregunta real es más pequeña: qué parte de la navegación tiene call sites hoy. Mi recomendación: **sí, recortada** |
+| **OQ-4** *(nueva)* | ¿Qué protege el arranque en **release** si falta un registro, o se registra bajo el tipo estático equivocado? | `resolve` hace `fatalError` y `validateRegistrations` solo existe en DEBUG. Hoy esa garantía la da el compilador y la fase 1 la degrada a runtime. Afecta a la promesa de que un clon recién hecho nunca se rompe |
+| **OQ-5** *(nueva)* | ¿Cómo se verifica la equivalencia de UI, si no hay UI tests? | La suite no tiene ni un test de vista, y `CoordinatorView` oculta la barra del sistema en todas las rutas. O checklist manual declarado, o se acepta el riesgo por escrito |
+| **OQ-6** *(nueva)* | El literal `"Películas populares"` de `PopularMoviesView.swift:17`: ¿se localiza en este PRD o va al ledger? | No hay `Localizable.xcstrings` en el repo y AGENTS.md §2 exige String Catalog ES+EN. Las fases 2 y 3 **tocan ese archivo**, así que aplica §1.3 «el que toca, cierra» |
 | **OQ-3** | ¿`@Inject` se usa en algún sitio de este módulo, o todo va por constructor? | Hoy no hay ninguna dependencia transversal (ni analítica ni logger propio). Si la respuesta es «todo por constructor», `@Inject` queda **declarado como no usado y por qué**, que es mejor documentación que usarlo por usarlo |
 
 ## 14. Mockups / referencias
@@ -226,7 +300,14 @@ No aplica: cero cambios de UI. Las referencias son `architecture/platforms/ios.m
 - [ ] Los seis comandos de §3 dan el resultado declarado.
 - [ ] G1-G5 pasan; G3 y G4 son tests nuevos.
 - [ ] `bash tools/check-layers.sh` y `bash tools/check-drift.sh` sin errores nuevos.
-- [ ] `bash tools/check-prd-tree.sh` sin huérfanos: el árbol de §5 coincide con lo entregado.
+- [ ] **Cada fase quita el `[SLICE-FUTURO]`** de las líneas de §5 que entrega, **en su mismo
+      commit**. Y al cerrar el PRD: `bash tools/check-prd-tree.sh` reporta **`futuros=0`** para
+      este PRD, no solo `faltan=0`.
+      > Por qué se escribe así: `check-prd-tree.sh:194-197` **salta** toda línea marcada
+      > `[SLICE-FUTURO]`. Los cinco archivos nuevos la llevan, así que con la redacción anterior
+      > —«sin huérfanos»— el check habría dicho `faltan=0` aunque no se creara ni un archivo. Era
+      > un ítem de DoD que pasa igual haciendo el trabajo que no haciéndolo: un gate anunciado que
+      > no existe (§14.4), justo lo que ese script dice cazar.
 - [ ] `f-f2a4ca6e`, `f-54d7ee41` y `f-b6f2c1a4` **cerrados** con su resolución real.
 - [ ] Las skills siguen siendo ciertas: si el refactor cambia un patrón, la skill se actualiza
       **en el mismo PR** (§Mantenimiento de `architecture/SKILL.md`).
@@ -244,6 +325,7 @@ No aplica: cero cambios de UI. Las referencias son `architecture/platforms/ios.m
 | Fecha | Cambio | Quién |
 |---|---|---|
 | 2026-08-29 | Draft inicial, tras la reescritura de las skills y la auditoría de los dos SPM | agente |
+| 2026-08-29 | **Design-review 🔴 RED (13 hallazgos) y correcciones.** Los cuatro bloqueantes eran comprobaciones que no comprobaban: un criterio de §3 que ya salía verde casando un comentario; `MoviesModule` colocado en `Features/`, donde `layers.conf:56` lo habría rechazado; un golden (G4) imposible de escribir con una ruta única, que además contradecía la exclusión razonada de otro golden idéntico; y un ítem de DoD infalsificable porque `[SLICE-FUTURO]` lo salta. Corregido también: una afirmación **falsa** de §9 (el golden de «volver del detalle» ya existe y pasa), una dependencia entre fases **inventada**, el orden de fases (3→1→2), `spm-pro/**` en NO-TOUCH (ruta inexistente aquí), tres tests que el refactor rompe y no estaban en §5, y G5 retirado por vacuo | agente |
 
 ## 18. Gaps detectados (llenar post-ship)
 

@@ -79,31 +79,33 @@ Medible, y verificable por comando:
 
 | Condición | Cómo se verifica |
 |---|---|
+| **PRIMARIO — el cableado compila** | test de nivel 0, patrón `SmokeTests.swift`: construye `Coordinator<MoviesRoute>`, resuelve el puerto por `Container` e invoca `MoviesRouteBuilder`. **Un comentario no puede satisfacer una compilación** |
 | El **módulo** registra lo que promete | G3: test de la fase 1, en contenedor propio |
 | El **composition root usa** el módulo | `grep -rnE '^[^/]*register\(modules:' --include="*.swift" Sources/App/` |
-| Existe un `DependencyModule` | `grep -rnE '^[[:space:]]*(struct\|final class) .*: DependencyModule' --include="*.swift" Sources/App/` |
-| La navegación pasa por `CoordinatorView` | `grep -rnE 'CoordinatorView[[:space:]]*[({]' --include="*.swift" Sources/ \| grep -vE ':[0-9]+:[[:space:]]*//'` |
-| **Ninguna View construye un `NavigationStack`** | `! grep -rnE 'NavigationStack[[:space:]]*[({]' --include="*.swift" Sources/` |
+| Existe un `DependencyModule` | `grep -rnE '^[^/]*: DependencyModule' --include="*.swift" Sources/App/` |
+| La navegación pasa por `CoordinatorView` | `grep -rnE '^[^/]*CoordinatorView[[:space:]]*[({]' --include="*.swift" Sources/` |
+| **Ninguna View construye un `NavigationStack`** | `! grep -rnE '^[^/]*NavigationStack[[:space:]]*[({]' --include="*.swift" Sources/` |
 | La suite sigue verde y firmada | `bash tools/verify-run.sh` |
 | Sin regresión de capas ni drift | `bash tools/check-layers.sh` · `bash tools/check-drift.sh` |
 
-> ⚠️ **Segunda corrección de esta tabla, y las dos veces por lo mismo.** La 1ª versión usaba
-> `grep -rl "CoordinatorView\|any Router<"`, que salía verde casando un **comentario**. La 2ª la
-> «endureció» exigiendo paréntesis — y volvió a salir verde, ahora por el motivo contrario:
-> `BaselineApp.swift:14` es `NavigationStack {`, **trailing closure sin paréntesis**, la forma que
-> SwiftUI usa siempre para un contenedor con un solo `@ViewBuilder`. `NavigationStack(` daba **cero
-> matches**, el `!` lo invertía, y la condición «ninguna View construye un `NavigationStack`» se
-> declaraba cumplida **con el `NavigationStack` que este PRD existe para borrar todavía en su
-> sitio**. Por eso ahora el patrón es `[[:space:]]*[({]`: cubre las dos formas.
+> ⚠️ **Tres pasadas de design-review, tres bugs distintos en esta misma tabla. El problema es el
+> mecanismo, no la expresión.** Por orden: (1) el primer grep salía verde casando un **comentario**;
+> (2) «endurecerlo» con paréntesis lo volvió a poner verde, ahora porque `NavigationStack {` es
+> *trailing closure* y `NavigationStack(` da cero matches — la condición se declaraba cumplida con
+> el `NavigationStack` intacto; (3) el escape que la tabla markdown exige para meter una tubería
+> en una celda **sobrevive dentro de las comillas**, y en ERE es una tubería **literal**: el patrón
+> buscaba la cadena `struct|final class`, que no existe en Swift, así que el criterio era
+> **insatisfacible** — imposible de poner verde ni haciendo el trabajo.
 >
-> Y el filtro anti-comentarios de la 2ª versión —`| grep -v "^\s*//"`— **no filtraba nada**:
-> `grep -rn` emite `ruta:línea:contenido`, así que la línea empieza por `Sources/`, nunca por `//`.
-> Una defensa anunciada que no existe (§14.4), escrita tres líneas debajo del recuadro que decía
-> estar corrigiendo justo eso.
+> Por eso la fila primaria es ahora **el compilador**, que es lo que este repo ya usa en
+> `SmokeTests.swift:12-22` («si los tres módulos no estuvieran enlazados de verdad, esto no
+> compilaría»). Los greps quedan como comprobación **secundaria**, con la misma técnica en las
+> cuatro: `^[^/]*` al principio —que excluye `//` y `///` de verdad, sobre el contenido y no sobre
+> la salida de `grep -rn`— y cero tuberías, cero alternancias.
 >
-> `[[:space:]]` y no `\s`: en `tools/` hay 55 usos del primero y **cero** del segundo, y no es
-> casualidad — BSD grep no define `\s` y lo degrada a la letra `s`, con lo que `^\s*struct` pasa
-> a ser `^s*struct` y deja de casar cualquier declaración indentada.
+> `[[:space:]]` y no la clase corta: en `tools/` hay 55 usos del primero y **cero** de la segunda.
+> BSD grep no la define y la degrada a la letra literal, con lo que el patrón deja de casar
+> cualquier declaración indentada.
 
 ## 4. Filosofía / principios
 
@@ -168,11 +170,13 @@ iOSAppBaseline.xcodeproj/…/Package.resolved
 
 ## 5b. Fases entregables
 
-| Fase | Entrega (mergeable) | Depende de |
+> **Orden de ejecución: 3 → 1 → 2.** La columna de la derecha dice **por qué**, no cuándo.
+
+| Fase | Entrega (mergeable) | Orden / motivo |
 |---|---|---|
-| **1 — DI** | `MoviesModule` + `Container` en el composition root. Sin cambio visible. Los tests registran fakes en contenedores propios. | — |
-| **2 — Navegación (RECORTADA)** | `MoviesRoute` + `AppCoordinatorView` + `Coordinator` + `CoordinatorView`. La View deja de poseer identidad; `MoviesScreenStore` pasa a estar justificado. **NO entra `any Router` en el ViewModel** — ver abajo. | 1 |
-| **3 — Convención de intención** | `enum Action` → `Intent` + `send(_:)`, alineado con `.claude/rules/10-ios-ui.md`. Cierra `f-b6f2c1a4`. | 2 |
+| **3 — Convención de intención** | `enum Action` → `Intent` + `send(_:)`, alineado con `.claude/rules/10-ios-ui.md`. Cierra `f-b6f2c1a4`. | **Primera.** Sin dependencias: es mecánica e independiente, y desactiva la colisión del `typealias Action` **antes** de la fase que mete tipos de AppFoundation en esa clase |
+| **1 — DI** | `MoviesModule` + `Container` en el composition root. Sin cambio visible. Los tests registran fakes en contenedores propios. | **Segunda.** Sin dependencia técnica de las otras; va antes que la 2 porque su verificación (G3) no toca UI y deja un diff pequeño |
+| **2 — Navegación (RECORTADA)** | `MoviesRoute` + `AppCoordinatorView` + `Coordinator` + `CoordinatorView` + **`MoviesRouteBuilder`** (la costura que hace G4 escribible) + **G4**. La View deja de poseer identidad; `MoviesScreenStore` pasa a estar justificado. **NO entra `any Router` en el ViewModel** — ver abajo. | **Tercera.** No depende técnicamente de la 1: es **fricción**, ambas editan `BaselineApp.swift` y se serializan para no colisionar |
 
 **Por qué en este orden — corregido tras el design-review.** La primera versión decía que «la
 navegación necesita el grafo ya armado por `Container`». **Es falso**: la fase 2 compila
@@ -239,7 +243,11 @@ CoordinatorView(coordinator: coordinator) { MoviesRouteBuilder.view(for: $0, sto
 > closure inline escrito al lado darían G4 en verde con la Trampa C viva — el mismo patrón de
 > `f-ed8f24f6` («se prueba el validador y se prueba el mapeo, no el código que los conecta»), un
 > nivel más arriba. Por eso la conexión es **una sola línea sin cuerpo**: el residuo no verificado
-> pasa a ser «¿se llama al builder?» y no «¿qué hace el closure?». Va al ledger al cerrar la fase.
+> pasa a ser «¿se llama al builder?» y no «¿qué hace el closure?».
+>
+> **Condición de cierre, para que no sea un finding abierto para siempre** (§1.1 exige estado
+> terminal): se cierra con el **slice de detalle** — el mismo que trae el `Router` —, porque es
+> cuando existe un push/pop real que lo ejercite. No «algún día»: un evento planificado.
 
 **El `Router` no entra en este PRD** (§5b): con una sola ruta no hay a dónde navegar. Cuando entre,
 el ViewModel dependerá de `any Router<MoviesRoute>` —el protocolo: seis métodos y ningún estado de
@@ -294,7 +302,8 @@ lectura—, así que no podrá saber dónde está ni resetear el root: solo emit
 
 ## 10. Métricas de éxito
 
-- Cada fila de §3 da el resultado declarado (cinco comandos y un test, no seis comandos).
+- Cada fila de §3 da el resultado declarado. *(No se escribe aquí cuántas son: una cuenta a mano
+  al lado de la lista que cuenta caduca sola, y ya caducó dos veces en este mismo PRD.)*
 - `bash tools/verify-run.sh` verde y firmado contra el diff de cada fase.
 - Ningún test existente borrado sin justificación escrita en el propio test.
 
@@ -341,11 +350,13 @@ del sistema queda oculta en todas las rutas (§9, OQ-5). Las referencias son `ar
       commit**. Y al cerrar el PRD: `bash tools/check-prd-tree.sh` reporta **`futuros=0`** para
       este PRD, no solo `faltan=0`.
       > Por qué se escribe así: `check-prd-tree.sh:194-197` **salta** toda línea marcada
-      > `[SLICE-FUTURO]`. Los cinco archivos nuevos la llevan, así que con la redacción anterior
+      > `[SLICE-FUTURO]`. **Todos** los archivos nuevos la llevan, así que con la redacción anterior
       > —«sin huérfanos»— el check habría dicho `faltan=0` aunque no se creara ni un archivo. Era
       > un ítem de DoD que pasa igual haciendo el trabajo que no haciéndolo: un gate anunciado que
       > no existe (§14.4), justo lo que ese script dice cazar.
 - [ ] `f-f2a4ca6e`, `f-54d7ee41` y `f-b6f2c1a4` **cerrados** con su resolución real.
+- [ ] Residuo de G4 —la conexión builder → `CoordinatorView`— **registrado en el ledger** con su
+      condición de cierre (el slice de detalle). §10: reportar es loguear, no mencionar en prosa.
 - [ ] Las skills siguen siendo ciertas: si el refactor cambia un patrón, la skill se actualiza
       **en el mismo PR** (§Mantenimiento de `architecture/SKILL.md`).
 - [ ] `docs/process/current_execution_map.md` actualizado **en el mismo commit** (feature-workflow §4.3).
@@ -357,7 +368,7 @@ del sistema queda oculta en todas las rutas (§9, OQ-5). Las referencias son `ar
 2. Decisión del owner sobre **OQ-1 a OQ-6**, y `Status: Approved`. Las tres nuevas (OQ-4
    `fatalError` en release, OQ-5 verificación de UI, OQ-6 i18n) traen decisiones que la primera
    versión de este PRD ni planteaba.
-3. Fase 1.
+3. **Fase 3** (el renombrado), que es la primera del orden 3 → 1 → 2.
 
 ## 17. Change log
 

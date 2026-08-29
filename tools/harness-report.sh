@@ -56,7 +56,15 @@ _runtime_inventory() {
   local tests=0 fills=0 commit="unknown"
   tests="$(git grep -hE '^test_[A-Za-z0-9_]+[[:space:]]*\(\)' HEAD -- 'tools/tests/test_*.sh' 2>/dev/null \
     | wc -l | tr -d ' ')"
-  fills="$(git grep -I -h -E '^[[:space:]]*([#;]|//|--)?[[:space:]]*<!--[[:space:]]*FILL([[:space:]:>-]|$)' HEAD -- . 2>/dev/null \
+  # El delimitador de FILL es `[[:space:]:>]` o el literal `-->`, NUNCA una
+  # clase que incluya `-` suelto. Un `-` al final de una clase de caracteres es
+  # un guion LITERAL, así que `[[:space:]:>-]` casaba `FILL-HECHO` —el marcador
+  # de los ya RESUELTOS— y los contaba como pendientes. El contador decía más
+  # deuda de la que había, justo en el informe que se pega para pedir ayuda.
+  # La forma `<!-- FILL-->` (guion pegado, sin espacio) sigue contando: por eso
+  # `-->` está como alternativa explícita y no simplemente borrado.
+  # Fijado por test_harness_report.sh::test_el_contador_de_fill_no_cuenta_los_ya_hechos.
+  fills="$(git grep -I -h -E '^[[:space:]]*([#;]|//|--)?[[:space:]]*<!--[[:space:]]*FILL([[:space:]:>]|-->|$)' HEAD -- . 2>/dev/null \
     | wc -l | tr -d ' ')"
   commit="$(git rev-parse --short HEAD 2>/dev/null || echo unknown)"
   echo "tests_discovered=${tests:-0}"

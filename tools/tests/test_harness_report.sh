@@ -84,3 +84,60 @@ _case_inventario_se_calcula_en_runtime() {
 test_report_calcula_tests_y_fills_sin_conteos_manuales() {
   _hr_sandbox _case_inventario_se_calcula_en_runtime
 }
+
+
+# ════════════════════════════════════════════════════════════════════
+# El contador de FILL contaba los YA RESUELTOS como pendientes
+# ════════════════════════════════════════════════════════════════════
+# Bug real y verificado. El regex delimitaba el marcador con la clase
+# `[[:space:]:>-]`, y un `-` AL FINAL de una clase de caracteres es un guion
+# LITERAL — no un rango. Así que `<!-- FILL-HECHO: ... -->`, la convención con
+# la que un adoptante marca lo que YA rellenó, casaba y se contaba como deuda.
+#
+# Importa más de lo que parece por DÓNDE sale: `fill_markers` va en el informe
+# que un adoptante PEGA para pedir ayuda. Un contador inflado le dice al que
+# ayuda que quedan huecos que ya están cerrados — y el informe existe
+# precisamente para no tener que fiarse de la memoria de nadie.
+#
+# El caso `<!-- FILL-->` (guion PEGADO, sin espacio) sigue contando: por eso el
+# arreglo es `([[:space:]:>]|-->|$)` y no "quitar el guion", que lo habría
+# perdido en silencio. Ese es el mutante que separa el arreglo del atajo.
+_case_fill_no_cuenta_los_hechos() {
+  # Los marcadores van a PRINCIPIO DE LÍNEA (con el prefijo de comentario
+  # opcional que admite el regex): el contador está anclado con `^` a propósito,
+  # para no contar una mención a media frase. Esa ancla es parte del contrato y
+  # el fixture la respeta en vez de rodearla — si se probara con marcadores a
+  # media línea, el test mediría otra cosa y daría 0 sin decir por qué.
+  mkdir -p doc
+  {
+    echo '<!-- FILL: rellena esto -->'
+    echo '<!-- FILL-->'
+    echo '# <!-- FILL -->'
+    # Marcador TRUNCADO: la linea acaba justo tras FILL, sin cierre. Ejercita la
+    # alternativa `$` de la ERE, que hasta ahora no la tocaba ningun test — lo
+    # cazo el `reviewer` aplicando el mismo criterio que este repo ya aplica a
+    # _ADDA_PRECOND: una rama que nadie ejercita es decoracion. Resulto NO ser
+    # decoracion (sin la rama, este caso deja de contarse), asi que la rama se
+    # queda y lo que faltaba era el fixture.
+    echo '<!-- FILL'
+  } > doc/pendientes.md
+  {
+    echo '<!-- FILL-HECHO: Swift 6 -->'
+    echo '<!-- FILL-HECHO -->'
+  } > doc/hechos.md
+  git stage doc
+  git commit -qm "fixture de FILL" 2>/dev/null
+
+  local out n
+  out="$(bash tools/harness-report.sh 2>/dev/null)"
+  n="$(printf '%s\n' "$out" | sed -n 's/^fill_markers=//p' | head -1)"
+  [ -n "$n" ] || { echo "    el informe no emitió fill_markers"; return 1; }
+  [ "$n" = "4" ] || {
+    echo "    fill_markers=$n, esperaba 4 (los pendientes), no 6 (contando FILL-HECHO)"
+    echo "    Un '-' al final de una clase de caracteres es LITERAL: [[:space:]:>-]"
+    echo "    casa 'FILL-HECHO'. El delimitador correcto es ([[:space:]:>]|-->|\$)."
+    return 1; }
+}
+test_el_contador_de_fill_no_cuenta_los_ya_hechos() {
+  _hr_sandbox _case_fill_no_cuenta_los_hechos
+}

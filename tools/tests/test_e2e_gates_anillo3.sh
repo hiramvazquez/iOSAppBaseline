@@ -162,6 +162,7 @@ tools/lesson-detector-link.sh
 tools/check-finding-refs.sh
 tools/check-version-claims.sh
 tools/check-execution-map.sh
+tools/check-prd-tree.sh
 tools/metrics/escape-rate.sh informativo
 "
 _g9_gates() { # _g9_gates stub|exigidos

@@ -118,8 +118,19 @@ _ultimo_ts() { # _ultimo_ts <path>... → timestamp del último commit, o vacío
 TS_MAP="$(_ultimo_ts "$MAP")"
 if [ -z "$TS_MAP" ]; then
   # El doc existe pero ningún commit lo ha tocado: no hay historia que comparar.
-  echo "EXECUTION_MAP_SUMMARY stale=0"
-  exit 0
+  #
+  # ⚠️ Esto ANTES hacía `exit 0`, y era un agujero: saltaba también las
+  # aserciones de CONTENIDO (frases muertas, cifras derivables, afirmaciones de
+  # estado), que no dependen de la historia de git para nada. El caso no es
+  # teórico — es exactamente el de un adoptante recién clonado, cuyo mapa aún
+  # no tiene commit propio: el detector le daba verde a un mapa que podía
+  # afirmar cualquier cosa. Un gate que no puede mirar la FRESCURA no es un
+  # gate que no pueda mirar NADA.
+  #
+  # Sin historia, "¿se tocó el mapa después?" no tiene respuesta, y esa es la
+  # misma situación que "lo estoy editando ahora": se reutiliza EN_CURSO en vez
+  # de inventar una segunda bandera con el mismo significado.
+  EN_CURSO=1
 fi
 
 # Solo los directorios que existen, o `git log` avisa de pathspec inexistente.
@@ -210,6 +221,77 @@ DERIVABLE_ERE="${EXECUTION_MAP_DERIVABLE_ERE:-[0-9]+[[:space:]]+(tests?|pruebas?
 DERIVABLES="$(grep -nE "$DERIVABLE_ERE" "$MAP" 2>/dev/null)"
 [ -n "$DERIVABLES" ] && STALE=1
 
+
+# ── Afirmaciones de ESTADO sin evidencia ────────────────────────────
+# Pasó en un adoptante real y NINGÚN gate lo cazó: el mapa afirmaba que
+# `gates.yml` "aún no ha corrido nunca". Había corrido y pasado TRES veces. Dos
+# agentes seguidos se lo repitieron al owner como cierto, porque este doc se
+# inyecta con autoridad en cada arranque (session-start.sh) y tras cada
+# compactación (post-compact.sh).
+#
+# Las cifras derivables de arriba no lo cazaban por una razón de CLASE, no de
+# cobertura: "aún no ha corrido nunca" no contiene ningún número. Es una
+# afirmación de ESTADO, y el estado se pudre igual que un conteo — peor, porque
+# no hay nada en su forma que delate que caducó.
+#
+# ── Por qué esta lista es CORTA Y CERRADA, y no un detector de negaciones ──
+# La tentación es cubrir "la clase": toda negación de estado en español. Eso es
+# exactamente el detector que ya murió en este repo — `check-version-claims.sh`
+# disparó al 67% de FP contra prosa española real, muy por encima del 10% que
+# §14.2 fija como criterio de descarte. Un detector ruidoso no se afina: se
+# desactiva entero, y con él se pierde la señal buena.
+#
+# Así que son CINCO fórmulas literales, elegidas porque cada una AFIRMA UN
+# HECHO COMPROBABLE sobre el mundo ("no ha ocurrido", "sigue faltando") en vez
+# de expresar una intención o un plan. Medido contra el mapa real de este repo:
+# 0 hits — el detector nace verde y solo habla cuando alguien escribe una de las
+# cinco. `test_fp_la_lista_de_formulas_es_exactamente_cinco` FIJA el conjunto:
+# ampliarlo obliga a tocar el test, que es justo la decisión consciente que
+# separa una lista corta de una pendiente resbaladiza.
+#
+# NO están aquí, a propósito: "falta", "pendiente", "no está" (demasiado
+# comunes en prosa de planificación legítima) ni el encabezado real del mapa
+# "Lo que NO hacemos todavía" — que es una DECLARACIÓN de alcance diferido, no
+# una afirmación sobre si algo ocurrió. Nótese que "NO hacemos todavía" no casa
+# "todavía no": el orden importa y por eso la fórmula lleva el "no" detrás.
+#
+# ── Locale: literales, nunca clases con no-ASCII ────────────────────
+# La suite corre con LANG="" (locale C). Ahí `[áa]` NO es "á o a" — son los
+# BYTES de `á` en UTF-8 más `a`, y deja de casar lo que casaba en tu shell (ya
+# pasó en test_execution_map.sh con `prohíb`). Lo que SÍ funciona en locale C es
+# un literal no-ASCII fuera de corchetes. De ahí que cada fórmula acentuada
+# aparezca DOS veces, con y sin tilde, como alternativas literales — no como
+# una clase. `grep -i` solo pliega las ASCII, que es cuanto necesitamos: las
+# tildes van en medio de la palabra, nunca en la inicial.
+# ⚠️ `sigue sin` lleva frontera de palabra y las demás no, y es deliberado: lo
+# cazó el `reviewer` sobre este mismo diff. Sin ella, el literal casa DENTRO de
+# "conSIGUE SIN", "proSIGUE SIN", "perSIGUE SIN" — prosa de progreso
+# perfectamente legítima ("el runner consigue sin mocks", "la suite prosigue sin
+# fallos"). Mi medición de 0 hits era correcta pero contra un corpus de UNO: el
+# mapa de hoy. Las otras cuatro fórmulas se probaron igual y no tienen colisión
+# de subcadena plausible en español, así que no se les pone la frontera para no
+# pagar complejidad que no compra nada.
+STATE_ERE="${EXECUTION_MAP_STATE_ERE:-nunca ha|aún no|aun no|todavía no|todavia no|(^|[^[:alpha:]])sigue sin|es lo único que queda|es lo unico que queda}"
+
+# La evidencia que redime una afirmación de estado: un COMANDO entre backticks
+# (quien lo lea puede recomprobarlo en 2 segundos) o un marcador explícito
+# `<!-- verificado: ... -->` para lo que ningún comando resuelve.
+EVIDENCIA_ERE='`[^`]+`|<!--[[:space:]]*verificado:'
+
+# Ventana de ±1 línea, y no "la misma línea", porque este mapa es markdown que
+# ENVUELVE: el claim cae en una línea y el comando que lo respalda en la
+# siguiente. Exigir la misma línea convertiría el salto de línea de un párrafo
+# en un falso positivo. No es una concesión inventada aquí: es exactamente la
+# ventana que ya usa `_adda_infractores` en test_execution_map.sh, contra esta
+# misma prosa y por esta misma razón.
+SIN_EVIDENCIA=""
+while IFS= read -r _n; do
+  [ -z "$_n" ] && continue
+  _ctx="$(sed -n "$((_n > 1 ? _n - 1 : 1)),$((_n + 1))p" "$MAP" 2>/dev/null)"
+  printf '%s\n' "$_ctx" | grep -qE "$EVIDENCIA_ERE" && continue
+  SIN_EVIDENCIA="${SIN_EVIDENCIA}     línea ${_n}: $(sed -n "${_n}p" "$MAP")"$'\n'
+done <<< "$(grep -inE "$STATE_ERE" "$MAP" 2>/dev/null | cut -d: -f1)"
+[ -n "$SIN_EVIDENCIA" ] && STALE=1
 echo "EXECUTION_MAP_SUMMARY stale=$STALE"
 [ "$STALE" = "0" ] && exit 0
 
@@ -232,6 +314,21 @@ echo "EXECUTION_MAP_SUMMARY stale=$STALE"
     echo "   \`bash tools/tests/run-tests.sh\` da el total al final; el contexto lo mide"
     echo "   test_lessons_presupuesto_contexto.sh) o por evidencia commit+fecha SIN la forma 'N tests /"
     echo "   N líneas'. Ver \`f-wf02-mapa-cifras-podridas\` en el ledger."
+  fi
+  if [ -n "$SIN_EVIDENCIA" ]; then
+    echo ""
+    echo "   AFIRMACIONES DE ESTADO SIN EVIDENCIA — estas líneas afirman que algo NO ha"
+    echo "   ocurrido (o que sigue faltando) sin decir con qué se comprobó:"
+    printf '%s' "$SIN_EVIDENCIA"
+    echo "   Pasó de verdad en un adoptante: el mapa decía que gates.yml \"aún no ha"
+    echo "   corrido nunca\" cuando había corrido y pasado TRES veces, y dos agentes"
+    echo "   seguidos se lo repitieron al owner como cierto. Una afirmación de estado"
+    echo "   caduca sola y, a diferencia de un conteo, nada en su forma lo delata."
+    echo "   Arréglalo de UNA de estas dos formas, en la línea o en su vecina:"
+    echo "     · el comando que lo comprueba, entre backticks — p. ej."
+    echo "       \"el Anillo 3 sigue sin remoto (\`bash tools/check-ring3.sh\`)\""
+    echo "     · o un marcador <!-- verificado: <cómo>, <fecha> --> si ningún comando lo resuelve"
+    echo "   Si ya no es cierto, bórralo: es la opción correcta más veces de las que parece."
   fi
   if [ -n "$DETALLE" ]; then
     echo ""

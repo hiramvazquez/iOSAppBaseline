@@ -252,6 +252,7 @@ fi
 [ -f tools/check-finding-refs.sh ]   && { bash tools/check-finding-refs.sh   || FAIL=1; }
 [ -f tools/check-version-claims.sh ] && { bash tools/check-version-claims.sh || FAIL=1; }
 [ -f tools/check-execution-map.sh ]  && { bash tools/check-execution-map.sh  || FAIL=1; }
+[ -f tools/check-prd-tree.sh ]       && { bash tools/check-prd-tree.sh       || FAIL=1; }
 
 # 8d) Contención por fase — INFORMATIVO, nunca bloquea.
 #     No es un gate: es el termómetro que dice si los gates sirven. Va aquí

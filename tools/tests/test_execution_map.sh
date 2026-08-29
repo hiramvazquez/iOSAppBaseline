@@ -588,3 +588,246 @@ test_una_recomendacion_real_de_git_add_A_se_caza() {
   rm -rf "$d"
   [ -n "$malos" ] || { echo "    FALSO NEGATIVO: una recomendación real de -A pasó"; return 1; }
 }
+
+# ════════════════════════════════════════════════════════════════════
+# AFIRMACIONES DE ESTADO — "aún no ha corrido nunca" y sus cuatro primas
+# ════════════════════════════════════════════════════════════════════
+# El incidente: en un adoptante real el mapa afirmaba que `gates.yml` "aún no
+# ha corrido nunca". Había corrido y pasado TRES veces. Dos agentes seguidos se
+# lo repitieron al owner como cierto — porque este doc se inyecta con autoridad
+# en cada arranque y nadie recomprueba un doc que se presenta como estado.
+#
+# Las cifras derivables no lo cazaban por CLASE, no por cobertura: la frase no
+# lleva ningún número. Es una afirmación de estado, y el estado se pudre igual
+# que un conteo — peor, porque nada en su forma delata que caducó.
+#
+# ⚠️ ESTE ES EL CHEQUEO MÁS FÁCIL DE CONVERTIR EN RUIDO de todo el detector, y
+# por eso la mitad de estos tests son falsos positivos. La ley del 10% (§14.2)
+# no es un consejo: `check-version-claims.sh` ya murió en este repo al 67% de FP
+# contra prosa española. Medido hoy contra el mapa real: 0 hits.
+
+_case_estado_sin_evidencia_dispara() {
+  _em_mapa '# Mapa
+## Estado actual
+- **Anillo 3:** gates.yml aún no ha corrido nunca contra un push real.'
+  git add -A && _em_commit "docs: mapa con afirmación de estado desnuda" 100
+
+  local out rc; out="$(_em_run)"; rc=$?
+  [ "$rc" = "1" ] || { echo "    la frase EXACTA del incidente no disparó (exit $rc)"; printf '%s\n' "$out" | sed 's/^/      /'; return 1; }
+  printf '%s' "$out" | grep -q 'AFIRMACIONES DE ESTADO SIN EVIDENCIA' \
+    || { echo "    disparó, pero el mensaje no nombra la clase del problema"; return 1; }
+  printf '%s' "$out" | grep -q 'línea 3:' \
+    || { echo "    el contrato pide NOMBRAR LA LÍNEA (esperaba 'línea 3:')"; printf '%s\n' "$out" | sed 's/^/      /'; return 1; }
+}
+test_afirmacion_de_estado_sin_evidencia_dispara() {
+  _em_repo _case_estado_sin_evidencia_dispara
+}
+
+_case_estado_con_comando_no_dispara() {
+  # FALSO POSITIVO CRÍTICO: la misma frase, redimida por el comando que la
+  # comprueba. Si esto disparase, el detector castigaría exactamente la
+  # conducta que existe para fomentar y no habría forma de ponerlo verde.
+  _em_mapa '# Mapa
+## Estado actual
+- **Anillo 3:** gates.yml aún no ha corrido nunca (`bash tools/check-ring3.sh`).'
+  git add -A && _em_commit "docs: mapa con evidencia" 100
+
+  local out rc; out="$(_em_run)"; rc=$?
+  [ "$rc" = "0" ] || { echo "    FALSO POSITIVO: una afirmación CON su comando disparó (exit $rc)"; printf '%s\n' "$out" | sed 's/^/      /'; return 1; }
+}
+test_fp_afirmacion_de_estado_con_comando_no_dispara() {
+  _em_repo _case_estado_con_comando_no_dispara
+}
+
+_case_evidencia_en_linea_vecina_no_dispara() {
+  # FALSO POSITIVO POR DISEÑO SI SE EXIGIERA "la misma línea": este mapa es
+  # markdown que ENVUELVE a ~100 columnas, así que el claim cae en una línea y
+  # el comando que lo respalda en la siguiente. Exigir la misma línea convierte
+  # un salto de párrafo en un fallo. La ventana de ±1 es la MISMA que ya usa
+  # `_adda_infractores` en este archivo, contra esta misma prosa.
+  _em_mapa '# Mapa
+## Estado actual
+- **Anillo 3:** gates.yml aún no ha corrido nunca contra un push real, lo
+  comprueba `bash tools/check-ring3.sh` en cada arranque de sesión.'
+  git add -A && _em_commit "docs: mapa con evidencia envuelta" 100
+
+  local out rc; out="$(_em_run)"; rc=$?
+  [ "$rc" = "0" ] || { echo "    FALSO POSITIVO: la evidencia en la línea vecina no contó (exit $rc)"; printf '%s\n' "$out" | sed 's/^/      /'; return 1; }
+}
+test_fp_evidencia_en_la_linea_vecina_no_dispara() {
+  _em_repo _case_evidencia_en_linea_vecina_no_dispara
+}
+
+_case_marcador_verificado_redime() {
+  # La segunda salida, para lo que NINGÚN comando resuelve. Sin ella el
+  # detector sería insatisfacible para afirmaciones legítimas que solo un
+  # humano puede comprobar, y un gate insatisfacible se desactiva entero.
+  _em_mapa '# Mapa
+## Estado actual
+- El runner de mutación sigue sin existir. <!-- verificado: no hay runner de mutación para bash, 2026-08-28 -->'
+  git add -A && _em_commit "docs: mapa con marcador" 100
+
+  local out rc; out="$(_em_run)"; rc=$?
+  [ "$rc" = "0" ] || { echo "    FALSO POSITIVO: el marcador <!-- verificado: --> no redimió (exit $rc)"; printf '%s\n' "$out" | sed 's/^/      /'; return 1; }
+}
+test_fp_marcador_verificado_redime_la_afirmacion() {
+  _em_repo _case_marcador_verificado_redime
+}
+
+# ── LA LISTA ES DE CINCO. Ampliarla es una DECISIÓN, no una pendiente ──
+# Este es el test que impide la pendiente resbaladiza. Cada fórmula que se
+# añada baja la precisión y sube el riesgo de que alguien desactive el detector
+# entero (§14.2). Que ampliar la lista OBLIGUE a tocar este test es el punto:
+# convierte un `+1 alternativa` descuidado en una decisión con revisor.
+#
+# Ocho ALTERNATIVAS, cinco FÓRMULAS: tres llevan variante sin tilde porque la
+# suite corre en locale C, donde una clase `[íi]` no casa lo que parece (ver el
+# comentario de _ADDA_PRECOND, misma mina). Literales, nunca clases.
+_STATE_ERE_ESPERADA='nunca ha|aún no|aun no|todavía no|todavia no|(^|[^[:alpha:]])sigue sin|es lo único que queda|es lo unico que queda'
+
+_state_ere_real() {
+  sed -n 's/^STATE_ERE="\${EXECUTION_MAP_STATE_ERE:-\(.*\)}"$/\1/p' \
+    "$PROJECT_ROOT/tools/check-execution-map.sh"
+}
+
+test_fp_la_lista_de_formulas_es_exactamente_cinco() {
+  local real; real="$(_state_ere_real)"
+  [ -n "$real" ] || { echo "    no encuentro el default de STATE_ERE en check-execution-map.sh"; return 1; }
+  [ "$real" = "$_STATE_ERE_ESPERADA" ] || {
+    echo "    la lista de fórmulas CAMBIÓ. Esto no es un fallo: es la pregunta."
+    echo "      esperada: $_STATE_ERE_ESPERADA"
+    echo "      real:     $real"
+    echo "    Si la ampliaste a propósito, mide primero los hits contra el mapa real"
+    echo "    (\`grep -inE \"<la nueva ERE>\" docs/process/current_execution_map.md\`) y"
+    echo "    actualiza _STATE_ERE_ESPERADA. Si pasa de ~5 hits legítimos, la fórmula"
+    echo "    nueva es ruido y §14.2 dice que se descarta el detector entero, no la fila."
+    return 1; }
+  # Y que sigan siendo CINCO conceptos: 8 alternativas, 3 con variante de tilde.
+  # Se quita primero el grupo de frontera de `sigue sin` —lleva un `|` dentro
+  # que no separa fórmulas— o el conteo mediría la sintaxis en vez de la lista.
+  local alts; alts="$(printf '%s' "$real" | sed 's/(\^|\[\^\[:alpha:\]\])//g' | tr '|' '\n' | grep -c .)"
+  [ "$alts" = "8" ] || { echo "    esperaba 8 alternativas (5 fórmulas, 3 con variante sin tilde), hay $alts"; return 1; }
+}
+
+# ── Y cada una de las cinco se EJERCITA: sin esto son ramas decorativas ──
+# El `reviewer` aplicó este criterio a `_ADDA_PRECOND` y encontró alternativas
+# que no mataban ningún test. Una rama que nadie ejercita es decoración: o se
+# prueba o se retira. Cada fórmula va en SU archivo/línea, sin vecinas que la
+# rediman por la ventana de ±1.
+test_las_cinco_formulas_disparan_cada_una() {
+  local d rc=0 f n=0; d="$(mktemp -d)" || return 1
+  local formulas=(
+    'El gate nunca ha corrido en este repo.'
+    'La fase 3 aún no está cerrada.'
+    'El runner todavía no existe.'
+    'El nivel 4 sigue sin cablear.'
+    'Cablear el runner es lo único que queda.'
+  )
+  for f in "${formulas[@]}"; do
+    n=$((n + 1))
+    printf '# Mapa\n%s\n' "$f" > "$d/m$n.md"
+    EXECUTION_MAP_DOC="$d/m$n.md" bash "$PROJECT_ROOT/tools/check-execution-map.sh" >/dev/null 2>&1
+    [ "$?" = "1" ] || { echo "    la fórmula #$n NO disparó — rama muerta: $f"; rc=1; }
+  done
+  rm -rf "$d"; return $rc
+}
+
+_case_fp_prosa_legitima_del_mapa() {
+  # FALSOS POSITIVOS reales, sacados del mapa de este repo y de prosa de
+  # planificación normal. Ninguno afirma que algo no haya ocurrido:
+  #   · "Lo que NO hacemos todavía" — el ENCABEZADO real del mapa (línea 209).
+  #     Es una declaración de alcance diferido, no un hecho comprobable. No casa
+  #     porque la fórmula exige el "no" DETRÁS ("todavía no"), y aquí va delante.
+  #   · "falta" / "pendiente" / "no está" — deliberadamente FUERA de la lista:
+  #     son el vocabulario normal de cualquier plan y meterlas es el 67% de FP.
+  #   · "nunca demuestra" — el mapa ya lo usa (línea 59) y no es "nunca ha".
+  _em_mapa '# Mapa
+## Estado actual
+- Fase: en marcha; falta cablear el nivel 4 y queda pendiente la fase 3.
+- Un grep que no encuentra la grafía **nunca demuestra que algo no exista**.
+- El PRD 0004 no está cerrado; la ventana sigue abierta.
+
+## Lo que NO hacemos todavía (explícito)
+- Fuzzing, métodos formales, SBOM.'
+  git add -A && _em_commit "docs: mapa con prosa legítima" 100
+
+  local out rc; out="$(_em_run)"; rc=$?
+  [ "$rc" = "0" ] || { echo "    FALSO POSITIVO: prosa legítima del mapa real disparó (exit $rc)"; printf '%s\n' "$out" | sed 's/^/      /'; return 1; }
+}
+test_fp_prosa_legitima_de_planificacion_no_dispara() {
+  _em_repo _case_fp_prosa_legitima_del_mapa
+}
+
+test_el_mapa_real_no_tiene_afirmaciones_de_estado_desnudas() {
+  # El propio repo debe estar limpio. Si esto falla, el mapa tiene una
+  # afirmación de estado sin evidencia — se arregla el mapa, no el test.
+  # Es además la medida de RUIDO en vivo: 0 hits el día que se escribió.
+  local out rc
+  out="$(cd "$PROJECT_ROOT" && bash tools/check-execution-map.sh 2>&1)"; rc=$?
+  [ "$rc" = "0" ] || {
+    echo "    check-execution-map falla contra el mapa real (exit $rc):"
+    printf '%s\n' "$out" | tail -12 | sed 's/^/      /'; return 1; }
+}
+
+# ── REGRESIÓN: un mapa SIN historia de commits no salta el contenido ──
+# Agujero PREEXISTENTE cazado por la prueba de bolsillo de esta tanda: con
+# `TS_MAP` vacío el detector hacía `exit 0` y se saltaba TAMBIÉN las aserciones
+# de contenido (frases muertas, cifras derivables y estas afirmaciones), que no
+# dependen de la historia de git para nada.
+#
+# No era teórico: es exactamente el caso de un adoptante recién clonado, cuyo
+# mapa aún no tiene commit propio. El detector le daba verde a un mapa que
+# podía afirmar cualquier cosa — un gate que no puede mirar la FRESCURA no es
+# un gate que no pueda mirar NADA (§14.3).
+test_mapa_sin_historia_no_salta_las_aserciones_de_contenido() {
+  local d rc=0; d="$(mktemp -d)" || return 1
+  printf '# Mapa\n- Salud: verde (hay 999 tests).\n' > "$d/sin-historia.md"
+  EXECUTION_MAP_DOC="$d/sin-historia.md" bash "$PROJECT_ROOT/tools/check-execution-map.sh" >/dev/null 2>&1
+  [ "$?" = "1" ] || { echo "    una cifra derivable en un mapa sin commits NO disparó"; rc=1; }
+
+  printf '# Mapa\n- gates.yml aún no ha corrido nunca.\n' > "$d/estado.md"
+  EXECUTION_MAP_DOC="$d/estado.md" bash "$PROJECT_ROOT/tools/check-execution-map.sh" >/dev/null 2>&1
+  [ "$?" = "1" ] || { echo "    una afirmación de estado en un mapa sin commits NO disparó"; rc=1; }
+
+  printf '# Mapa\n- Fase: en marcha, todo cableado.\n' > "$d/limpio.md"
+  EXECUTION_MAP_DOC="$d/limpio.md" bash "$PROJECT_ROOT/tools/check-execution-map.sh" >/dev/null 2>&1
+  [ "$?" = "0" ] || { echo "    y el otro lado: un mapa sin commits y LIMPIO debe dar 0"; rc=1; }
+  rm -rf "$d"; return $rc
+}
+
+_case_fp_sigue_sin_dentro_de_otra_palabra() {
+  # LO CAZÓ EL `reviewer` sobre el diff de esta misma tanda, y es la lección
+  # entera de §14.2 en una línea: yo había medido "0 hits" y era verdad, pero
+  # contra un corpus de UNO (el mapa de hoy). Un literal sin frontera de palabra
+  # no falla en el corpus que miraste; falla en la frase que alguien escribirá
+  # mañana. `sigue sin` casa dentro de conSIGUE SIN, proSIGUE SIN, perSIGUE SIN
+  # — todas prosa de progreso legítima.
+  _em_mapa '# Mapa
+## Estado actual
+- El pipeline consigue sin reintentos pasar los gates.
+- La suite prosigue sin fallos desde el martes.
+- El detector persigue sin descanso los falsos positivos.'
+  git add -A && _em_commit "docs: mapa con verbos en -sigue" 100
+
+  local out rc; out="$(_em_run)"; rc=$?
+  [ "$rc" = "0" ] || {
+    echo "    FALSO POSITIVO: 'sigue sin' casó dentro de otra palabra (exit $rc)"
+    printf '%s\n' "$out" | sed 's/^/      /'; return 1; }
+}
+test_fp_sigue_sin_dentro_de_otra_palabra_no_dispara() {
+  _em_repo _case_fp_sigue_sin_dentro_de_otra_palabra
+}
+
+_case_sigue_sin_de_verdad_si_dispara() {
+  # El otro lado de la frontera: arreglar el FP poniendo una frontera que
+  # tampoco deje pasar el caso REAL sería cambiar un fallo por otro peor.
+  _em_mapa '# Mapa
+## Estado actual
+- El nivel 4 sigue sin cablear.'
+  git add -A && _em_commit "docs: mapa" 100
+  local rc; _em_run >/dev/null; rc=$?
+  [ "$rc" = "1" ] || { echo "    la frontera de palabra silenció el caso REAL de 'sigue sin' (exit $rc)"; return 1; }
+}
+test_sigue_sin_al_principio_de_palabra_si_dispara() {
+  _em_repo _case_sigue_sin_de_verdad_si_dispara
+}

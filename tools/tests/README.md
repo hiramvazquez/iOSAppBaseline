@@ -3,9 +3,11 @@
 > Los gates son código, y código con lógica de decisión sin test es deuda (AGENTS.md §5).
 > Esta suite (`bash tools/tests/run-tests.sh` imprime el conteo real — no lo hardcodees aquí,
 > ya se pudrió dos veces) fija el COMPORTAMIENTO de los gates. Corre en cada push vía
-> el workflow de CI de este repo, en Linux **y** macOS — a proposito no se nombra aqui: este
-> README viaja por el canal de sync, asi que cualquier nombre concreto es falso en el otro
-> lado y vuelve a conflictuar en cada actualizacion. La diferencia de OS es un
+> el workflow de CI del repo, en Linux **y** macOS — el nombre concreto **no se escribe aquí**,
+> a propósito: este README viaja por el canal de sync, así que nombrar un workflow le pisa al
+> adoptante el nombre del suyo con uno que en su repo no existe, y además vuelve a conflictuar
+> en cada actualización. Este mismo párrafo conflictuó al portarlo, con el template nombrando
+> el suyo: la regla se demuestra sola. La diferencia de OS es un
 > detector en sí misma (cazó el bug de `stat -f/-c` que rechazaba markers válidos en CI):
 > corre los scripts reales en repos git desechables y verifica exit codes, salidas y archivos
 > producidos — nunca detalles de implementación.

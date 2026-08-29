@@ -197,3 +197,97 @@ _case_project_kind_declarado_calla() {
   return 0
 }
 test_project_kind_declarado_no_avisa() { _sst_sandbox _case_project_kind_declarado_calla; }
+
+# ════════════════════════════════════════════════════════════════════
+# Los avisos de FILL casaban por PREFIJO: un hueco YA CERRADO seguía
+# saliendo como pendiente, para siempre
+# ════════════════════════════════════════════════════════════════════
+# Los dos patrones eran `Plataformas:\*\* <!-- FILL` y `<!-- FILL`, ambos
+# prefijos abiertos, así que casaban también `<!-- FILL-HECHO: ... -->`, que es
+# el marcador de los ya RESUELTOS. Un adoptante que cerrase el hueco con esa
+# convención seguiría leyendo "AGENTS.md §2 SIN rellenar" y "Nivel 1 PARCIAL"
+# en CADA arranque de sesión, sobre trabajo que ya hizo.
+#
+# Importa más aquí que en otros sitios porque este es el banner de arranque: el
+# punto de máxima autoridad del harness. Un aviso que no se puede apagar
+# haciendo lo correcto enseña a ignorar los avisos, que es como mueren los
+# gates (§14.2).
+#
+# La misma clase la arregló otra sesión en harness-report.sh y skill-reminder.sh;
+# aquí se usa el MISMO delimitador para no inventar una tercera forma.
+# ⚠️ El atajo de excluir el guion (`[[:space:]:>-]`) NO vale: perdería
+# `<!-- FILL-->` pegado, que sí es un hueco pendiente. Por eso `-->` va como
+# alternativa explícita y no como carácter dentro de la clase.
+
+_sst_con_agents() { # <linea-de-plataformas>
+  printf '# Proyecto\n\n## 2. Stack\n\n- **Plataformas:** %s\n' "$1" > AGENTS.md
+}
+# Dos detalles de este helper que NO son estilo, son correccion. Los dos
+# hacian que el test mintiera, y en direcciones opuestas:
+#
+#   · `</dev/null` — el hook lee su payload de stdin con `cat` cuando stdin no
+#     es un TTY. Sin cerrar la entrada se cuelga esperando EOF, el runner lo
+#     mata por timeout SIN salida, y entonces un grep de "el aviso NO aparece"
+#     pasa EN VACIO. Un test que aprueba porque el programa no llego a hablar
+#     es peor que no tenerlo.
+#   · CAPTURAR y luego grepear, en vez de `cmd | grep -q`. El runner corre con
+#     `set -uo pipefail` (run-tests.sh:16) y `grep -q` sale en cuanto encuentra
+#     lo que busca, matando al productor con SIGPIPE (141). Con pipefail ese
+#     141 es el estado del pipeline, asi que el test fallaba EXACTAMENTE cuando
+#     el aviso SI aparecia — el caso correcto era el unico que no pasaba.
+_sst_banner() { bash scripts/agent-hooks/session-start.sh --report </dev/null 2>&1; }
+_sst_avisa_stack() { # ¿el banner se queja del §2?
+  local out; out="$(_sst_banner)"
+  printf '%s' "$out" | grep -q 'AGENTS.md §2 (Stack) SIN rellenar'
+}
+_sst_avisa_nivel1() {
+  local out; out="$(_sst_banner)"
+  printf '%s' "$out" | grep -q 'Nivel 1 PARCIAL'
+}
+
+_case_fill_hecho_no_cuenta_como_pendiente() {
+  _sst_con_agents '<!-- FILL-HECHO: ios 17+, SwiftUI -->'
+  _sst_avisa_stack \
+    && { echo "    un hueco YA CERRADO con FILL-HECHO se sigue reportando como pendiente"; return 1; }
+  return 0
+}
+test_agents_con_fill_hecho_no_avisa_de_stack() { _sst_sandbox _case_fill_hecho_no_cuenta_como_pendiente; }
+
+_case_fill_de_verdad_sigue_avisando() {
+  # La otra mitad: sin este test, "arreglar" lo de arriba dejando de mirar
+  # AGENTS.md pasaría inadvertido y el aviso moriría entero.
+  _sst_con_agents '<!-- FILL: ios / android / web / backend -->'
+  _sst_avisa_stack \
+    || { echo "    un FILL de verdad dejó de avisar: el aviso murió al arreglar el falso positivo"; return 1; }
+  return 0
+}
+test_agents_con_fill_real_sigue_avisando() { _sst_sandbox _case_fill_de_verdad_sigue_avisando; }
+
+_case_fill_pegado_sigue_contando() {
+  # LA TRAMPA del atajo. `<!-- FILL-->` (guion pegado, sin espacio) es un hueco
+  # PENDIENTE, y excluir el guion a secas para no casar FILL-HECHO se lo come.
+  _sst_con_agents '<!-- FILL-->'
+  _sst_avisa_stack \
+    || { echo "    '<!-- FILL-->' (guion pegado) dejó de contar como hueco pendiente"; return 1; }
+  return 0
+}
+test_fill_con_guion_pegado_sigue_siendo_pendiente() { _sst_sandbox _case_fill_pegado_sigue_contando; }
+
+_case_nivel1_con_fill_hecho_no_avisa() {
+  # Mismo defecto, segundo sitio: el aviso del nivel 1 mira post-edit-verify.sh.
+  printf '#!/usr/bin/env bash\n# <!-- FILL-HECHO: xcrun swift-format -->\ncase "$x" in\n  *) : ;;\nesac\n' \
+    > scripts/agent-hooks/post-edit-verify.sh
+  _sst_avisa_nivel1 \
+    && { echo "    el nivel 1 sigue avisando con el FILL ya resuelto (FILL-HECHO)"; return 1; }
+  return 0
+}
+test_nivel1_con_fill_hecho_no_avisa() { _sst_sandbox _case_nivel1_con_fill_hecho_no_avisa; }
+
+_case_nivel1_con_fill_real_sigue_avisando() {
+  printf '#!/usr/bin/env bash\n# <!-- FILL: el lint de tu stack -->\ncase "$x" in\n  *) : ;;\nesac\n' \
+    > scripts/agent-hooks/post-edit-verify.sh
+  _sst_avisa_nivel1 \
+    || { echo "    el aviso del nivel 1 murió: un FILL real dejó de reportarse"; return 1; }
+  return 0
+}
+test_nivel1_con_fill_real_sigue_avisando() { _sst_sandbox _case_nivel1_con_fill_real_sigue_avisando; }

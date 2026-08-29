@@ -117,7 +117,14 @@ if [ -f tools/check-ring3.sh ]; then
       warn "Cada exit 3 de un detector es fail-open DEFINITIVO mientras siga así."
     else
       bad "Anillo 3 AUSENTE en preset full — el backstop de §14.3 no existe."
-      printf '%s\n' "$_r3" | grep -E '^\s+(·|Remedio|CONSECUENCIA)' | sed 's/^/     /'
+      # Se imprime el cuerpo ENTERO del diagnostico (toda linea indentada), no
+      # tres prefijos concretos. El filtro anterior enumeraba '·|Remedio|
+      # CONSECUENCIA' y cortaba a media frase cualquier explicacion nueva: al
+      # ampliar el detector, el usuario leia "el ultimo run" seguido de
+      # "Remedio:", sin la parte que dice POR QUE. Un filtro por lista de
+      # prefijos obliga a acordarse de el cada vez que cambia el mensaje —y
+      # nadie se acuerda—; por forma (indentado = cuerpo) no hay que tocarlo.
+      printf '%s\n' "$_r3" | grep -E '^[[:space:]]+[^[:space:]]' | sed 's/^/     /'
     fi
   fi
 else

@@ -29,7 +29,7 @@
   cupo de Actions a ~10× y un cupo agotado ya dejó a otro repo sin Anillo 3 una semana sin que
   nadie lo declarara. El rango del scan de secretos sale de `github.event.before` (el commit
   anterior al push), no de `origin/main`: tras el push ese ref ya es `HEAD` y el gate aprobaría
-  sin escanear nada. **Aún no ha corrido nunca**: su primera ejecución es el push que lo estrena.
+  sin escanear nada. Estado de sus ejecuciones: `gh run list --repo hiramvazquez/iOSAppBaseline`.
 - **Entregado:**
   - Proyecto declarado en `project.yml` (xcodegen). El `.xcodeproj` es artefacto gitignored:
     se regenera con `xcodegen generate` y no da conflictos de merge.
@@ -103,9 +103,13 @@
    publicaron en `0.x`: estrenar antes de congelar la API sigue siendo la decision: un `1.0.0`
    etiquetado sin haberlo consumido nace obsoleto. El salto a `1.0.0` es cuando la vertical
    haya ejercitado la API entera.
-4. **CI aun no ha pasado en verde.** El estreno fallo por dos cosas: los paquetes locales
-   (resuelto aqui) y la descarga de gitleaks del ejemplo del template, cuyo asset cambio de
-   nombre — pendiente de arreglar en el template y re-sincronizar.
+4. **Anillo 3 en verde.** Los dos bloqueantes del estreno están resueltos: los paquetes
+   locales (`Invalid local package`, arreglado aquí al pasar a `url:` + `from:`) y la descarga
+   de gitleaks del ejemplo del template. El estado real de las ejecuciones **no se escribe
+   aquí** — se consulta con `gh run list --repo hiramvazquez/iOSAppBaseline`, que es lo único
+   que no caduca. La versión anterior de este punto afirmaba que CI «aún no ha pasado en
+   verde» cuando llevaba tres ejecuciones en verde, y lo cazó `check-execution-map.sh` en su
+   primera pasada tras el upgrade — el detector que existe precisamente por este párrafo.
 
 ## Decisiones ya tomadas (no re-litigar)
 

@@ -109,7 +109,19 @@ case "$(bash tools/mutation-score.sh --state 2>/dev/null || echo sin-cablear)" i
   *)
     echo "⚠️  NIVEL 4 NUNCA MEDIDO: el runner corre, pero nadie ha fijado el piso. Mide una vez (\`bash tools/mutation-score.sh --update\`) y a partir de ahí solo sube."; _health=0 ;;
 esac
-grep -qE 'Plataformas:\*\* <!-- FILL' AGENTS.md 2>/dev/null && { echo "⚠️  AGENTS.md §2 (Stack) SIN rellenar — build/test/lenguaje desconocidos."; _health=0; }
+# El delimitador tras FILL no es cosmetico. Con el prefijo abierto (`<!-- FILL`
+# a secas) estos dos avisos casaban tambien `<!-- FILL-HECHO: ... -->`, que es
+# el marcador de los huecos ya RESUELTOS: un adoptante que cerrara el hueco con
+# esa convencion seguia leyendo "SIN rellenar" en CADA arranque, sobre trabajo
+# que ya hizo. Un aviso que no se puede apagar haciendo lo correcto ensena a
+# ignorar los avisos, y este es el banner de arranque — el sitio de maxima
+# autoridad del harness.
+# ⚠️ El atajo de meter el guion en la clase (`[[:space:]:>-]`) NO vale: se come
+# `<!-- FILL-->` (guion pegado), que SI es un hueco pendiente. Por eso `-->` va
+# como alternativa explicita. Mismo delimitador que skill-reminder.sh:109 y
+# harness-report.sh:67, para no tener tres formas de lo mismo.
+_SST_FILL_ERE='<!--[[:space:]]*FILL([[:space:]:>]|-->|$)'
+grep -qE "Plataformas:\*\*[[:space:]]*$_SST_FILL_ERE" AGENTS.md 2>/dev/null && { echo "⚠️  AGENTS.md §2 (Stack) SIN rellenar — build/test/lenguaje desconocidos."; _health=0; }
 _src=0; for d in ios android web src; do [ -d "$d" ] && _src=1; done
 [ "$_src" = "0" ] && { echo "⚠️  Sin carpetas de código (ios/android/web/src) — check-drift inactivo."; _health=0; }
 # La matriz path→skill vive en tools/skill-matrix.conf (fuente única).
@@ -158,7 +170,7 @@ if [ -x tools/probe-capability.sh ]; then
 else
   echo "⚠️  Nivel 2 DESCONOCIDO: falta tools/probe-capability.sh; presencia no demuestra operación."; _health=0
 fi
-grep -q '<!-- FILL' scripts/agent-hooks/post-edit-verify.sh 2>/dev/null \
+grep -qE "$_SST_FILL_ERE" scripts/agent-hooks/post-edit-verify.sh 2>/dev/null \
   && grep -qE '^\s*\*\)\s*:\s*;;' scripts/agent-hooks/post-edit-verify.sh 2>/dev/null \
   && { echo "⚠️  Nivel 1 PARCIAL: post-edit-verify sin lint/typecheck de tu stack (§FILL) — el agente no recibe señal in-loop."; _health=0; }
 grep -q '"min_score": 0' tools/mutation-ratchet.json 2>/dev/null \
@@ -175,8 +187,26 @@ command -v gitleaks >/dev/null 2>&1 \
 # lo bloquea nunca. Declararlo aquí es el mínimo; en preset full,
 # validate-harness además FALLA.
 if [ -f tools/check-ring3.sh ]; then
-  bash tools/check-ring3.sh >/dev/null 2>&1 \
-    || { echo "⚠️  ANILLO 3 AUSENTE: sin remoto o sin CI que ejecute los gates. Todo detector que devuelva exit 3 hace fail-open DEFINITIVO (bash tools/check-ring3.sh para el remedio)."; _health=0; }
+  # Se IMPRIME la causa real que reporta el detector, en vez de un texto fijo.
+  # El texto fijo decia "sin remoto o sin CI" y desde que check-ring3 tambien
+  # detecta "cableado pero no ejecuta" (jobs rechazados por presupuesto) esa
+  # frase es sencillamente FALSA en el caso mas interesante: hay remoto y hay
+  # CI, y aun asi no hay backstop. Mandaba al owner a arreglar lo que ya
+  # estaba bien. Un diagnostico fijo envejece con el detector que resume.
+  _r3_out="$(bash tools/check-ring3.sh 2>&1)" || {
+    echo "⚠️  ANILLO 3 NO OPERATIVO: todo detector que devuelva exit 3 hace fail-open DEFINITIVO."
+    # Por FORMA, no por prefijo: '^[[:space:]]+·' solo casaba la PRIMERA linea
+    # de cada vineta y se comia sus continuaciones, asi que el banner imprimia
+    # "...el ultimo run" y ahi cortaba — sin el id, sin "CERO steps", sin la
+    # causa y sin el remedio. O sea justo la informacion por la que existe esto.
+    # Se corta en CONSECUENCIA porque ese parrafo ya lo resume la linea de
+    # arriba; lo que se conserva entero es causa + remedio.
+    printf '%s\n' "$_r3_out" \
+      | awk '/^[[:space:]]+CONSECUENCIA/{exit} /^[[:space:]]+[^[:space:]]/{print}' \
+      | sed 's/^[[:space:]]*/   /'
+    echo "   Diagnostico completo y remedio:  bash tools/check-ring3.sh"
+    _health=0
+  }
 fi
 
 # ── ¿El Anillo 1 está DORMIDO? ──────────────────────────────────────

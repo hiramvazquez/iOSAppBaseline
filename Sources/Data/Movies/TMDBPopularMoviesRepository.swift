@@ -26,6 +26,16 @@ struct TMDBPopularMoviesRepository: PopularMoviesRepository {
     /// **Sin `default:` a propósito**: si `CoreNetworking` añade un caso en una
     /// versión futura, esto deja de compilar en vez de convertirlo en
     /// `.unknown` en silencio. El compilador es el primer reviewer (§14.0).
+    ///
+    /// Los tres casos con juicio propio de este dominio (cancelación,
+    /// decodificación, 404) se resuelven aquí; el resto se delega a
+    /// `TransportError` de `CoreNetworking` (OQ-18) — el mapeo por código
+    /// HTTP/red que antes vivía suelto en este archivo, ahora centralizado y
+    /// reusable por cualquier repositorio futuro de la app. `MoviesError`
+    /// sigue sin importar `CoreNetworking`: `layers.conf` se lo prohíbe a
+    /// `Domain/` a propósito (el modelo de negocio no sabe cómo se
+    /// transporta), así que `mapearTransporte` traduce valor a valor en vez
+    /// de que el dominio adopte el tipo.
     private static func mapear(_ error: APIError) -> MoviesError {
         switch error {
         case .cancelled:
@@ -53,29 +63,27 @@ struct TMDBPopularMoviesRepository: PopularMoviesRepository {
         case .decodingError:
             return .malformedResponse
 
-        case .httpStatus(let codigo, _), .custom(_, let codigo, _):
-            return mapearEstado(codigo)
+        case .httpStatus(404, _), .custom(_, 404, _):
+            return .notFound
 
-        case .networkError(let urlError):
-            return urlError.code == .notConnectedToInternet ? .offline : .unknown
-
-        case .certificateValidationFailed:
-            // El pinning rechazó el certificado. NO se degrada a .unknown ni se
-            // silencia: es la señal de que algo se interpuso en la conexión.
-            return .connectionInterrupted
-
-        case .invalidURL, .invalidResponse, .encodingError, .unknown:
-            return .unknown
+        case .httpStatus, .custom, .networkError, .certificateValidationFailed,
+             .invalidURL, .invalidResponse, .encodingError, .unknown:
+            return mapearTransporte(TransportError(from: error))
         }
     }
 
-    private static func mapearEstado(_ codigo: Int) -> MoviesError {
-        switch codigo {
-        case 401, 403: .unauthorized
-        case 404: .notFound
-        case 429: .rateLimited
-        case 500...599: .server
-        default: .unknown
+    /// Traduce el vocabulario transversal de `CoreNetworking` al de este
+    /// dominio. Sin `default:` por el mismo motivo que `mapear`: un caso
+    /// nuevo en `TransportError` fuerza una decisión aquí, no se hereda en
+    /// silencio.
+    private static func mapearTransporte(_ error: TransportError) -> MoviesError {
+        switch error {
+        case .offline: .offline
+        case .unauthorized: .unauthorized
+        case .rateLimited: .rateLimited
+        case .server: .server
+        case .connectionInterrupted: .connectionInterrupted
+        case .unknown: .unknown
         }
     }
 }

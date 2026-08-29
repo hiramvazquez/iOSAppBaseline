@@ -15,8 +15,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/hiramvazquez/CoreNetworking.git",
       "state" : {
-        "revision" : "f4dba0ab2c304220267282d918db82446b3f7a65",
-        "version" : "0.1.3"
+        "revision" : "4d299f3634fd54086bafde0c318f8ab0fcb26069",
+        "version" : "0.1.4"
       }
     }
   ],

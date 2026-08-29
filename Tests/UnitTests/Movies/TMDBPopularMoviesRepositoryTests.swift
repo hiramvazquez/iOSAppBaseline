@@ -98,6 +98,29 @@ struct TMDBPopularMoviesRepositoryTests {
         }
     }
 
+    /// Sin cobertura hasta ahora: las fixtures de error de este archivo usan
+    /// siempre un status HTTP, nunca un fallo de `URLSession` sin respuesta.
+    @Test("sin conexión → .offline")
+    func sinConexion() async {
+        let baseURL = URL(string: "https://tmdb-offline.test")!
+        MockURLProtocol.register(MockNetworkExchange(
+            url: baseURL.appendingPathComponent("3/movie/popular"),
+            response: MockResponse(statusCode: 200),
+            error: URLError(.notConnectedToInternet)
+        ))
+        let repo = TMDBPopularMoviesRepository(
+            api: APIService(
+                configuration: NetworkingConfiguration(baseURL: baseURL,
+                                                       protocolClasses: [MockURLProtocol.self]),
+                retryPolicy: .noRetry
+            )
+        )
+
+        await #expect(throws: MoviesError.offline) {
+            try await repo.popularMovies()
+        }
+    }
+
     /// Un JSON que no entendemos es un fallo, **no «cero resultados»**.
     /// Degradarlo a lista vacía escondería una rotura de contrato detrás de una
     /// pantalla de «no hay películas».

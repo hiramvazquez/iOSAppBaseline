@@ -111,7 +111,9 @@ declare qué de lo suyo ya estaba cazado por los gates baratos.
 
 ## Cómo trabajar aquí — lo aprendido a golpes esta sesión
 
-- **No escribas un id de finding de memoria, jamás.** Un id inventado (`f-1a1cbb7f`) circuló
+- **No escribas un id de finding de memoria, jamás.** Un id inventado (f-1a1cbb7f, sin acentos
+  graves aquí a propósito: es la MENCIÓN de un fantasma, no la cita de un finding — y el
+  detector de citas distingue justo por eso) circuló
   por TRES sesiones y llegó a dos commits antes de que nadie hiciera el `grep` de dos segundos.
   Si citas un id, el comando que lo verifica va en el mismo mensaje.
 - **Cuando corrijas una afirmación, barre TODOS los sitios donde vive.** Siete instancias de la

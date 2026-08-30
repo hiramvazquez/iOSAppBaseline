@@ -145,7 +145,7 @@ Medible, y verificable por comando:
 
 ```
 Sources/Features/Movies/MoviesRoute.swift              ← [SLICE-FUTURO] fase 2: enum de rutas (Hashable)
-Sources/App/Movies/MoviesModule.swift                  ← [SLICE-FUTURO] fase 1: DependencyModule, registra adapters
+Sources/App/Movies/MoviesModule.swift                  ← ✅ fase 1 (entregado): DependencyModule con el guard de credencial
 Sources/Features/Movies/PopularMoviesViewModel.swift   ← TOCAR: enum Intent + send(_:). SIN any Router (ver 5b)
 Sources/Features/Movies/PopularMoviesView.swift        ← TOCAR: deja de poseer identidad (f-54d7ee41)
 Sources/App/BaselineApp.swift                          ← TOCAR: bootstrap(container:) + Coordinator;
@@ -154,12 +154,12 @@ Sources/App/BaselineApp.swift                          ← TOCAR: bootstrap(cont
 Sources/App/AppCoordinatorView.swift                   ← [SLICE-FUTURO] fase 2: Coordinator + CoordinatorView
 Sources/App/Movies/MoviesRouteBuilder.swift             ← [SLICE-FUTURO] fase 2: la costura que hace G4 escribible
 Sources/App/Movies/MoviesScreenStore.swift             ← TOCAR: pasa a estar justificado de verdad
-Tests/UnitTests/Movies/MoviesModuleTests.swift         ← [SLICE-FUTURO] fase 1: registra lo que promete
+Tests/UnitTests/Movies/MoviesModuleTests.swift         ← ✅ fase 1 (entregado): G3, en contenedor propio
 Tests/UnitTests/Movies/MoviesRouteBuilderTests.swift    ← [SLICE-FUTURO] fase 2: G4, el closure usa el store
 Tests/UnitTests/Movies/PopularMoviesViewModelTests.swift ← TOCADO por la fase 3: sus llamadas a send(_:) (el conteo exacto lo da grep, no esta prosa — la cifra que había aquí ya estaba mal)
 Tests/UnitTests/Movies/MoviesScreenStoreTests.swift    ← TOCAR: handle(_:) + dos PopularMoviesViewModel(repository:)
 Tests/UnitTests/SmokeTests.swift                       ← TOCAR/REVISAR: lee Container.shared y asevera tryResolve == nil
-Tests/UnitTests/Movies/BootstrapTests.swift            ← [SLICE-FUTURO] fase 1: el criterio PRIMARIO de §3
+Tests/UnitTests/Movies/BootstrapTests.swift            ← ✅ fase 1 (entregado): el criterio PRIMARIO, dos direcciones
 ```
 
 ### NO-TOUCH (contrato — el implementador NO toca esto)

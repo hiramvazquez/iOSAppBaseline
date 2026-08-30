@@ -30,11 +30,14 @@ import CoreNetworkingTestSupport
 ///   `FakeRepo`, `RepoConPeliculas`. Están configurados para producir UN
 ///   resultado concreto —lanzar, devolver vacío, contar invocaciones— para
 ///   probar OTRA capa. No pretenden ser implementaciones fieles del contrato.
-/// - **Null object de composition root** (exento y declarado):
-///   `SinCredencialRepository` en `BaselineApp.swift`. Siempre lanza
-///   `.unauthorized`, así que por construcción no puede pasar el camino feliz.
-///   Es una decisión legítima; lo que no sería legítimo es que existiera sin
-///   estar declarada aquí.
+/// - **Null objects de composition root** (exentos y declarados):
+///   `SinCredencialRepository` y `CableadoRotoRepository`, ambos en
+///   `BaselineApp.swift`. Siempre lanzan `.unauthorized`, así que por
+///   construcción no pueden pasar el camino feliz. El primero es el estado
+///   esperado «falta la credencial»; el segundo, el fallback de un grafo de
+///   DI roto (PRD 0002, OQ-4) — mismo copy para el usuario, causa distinguible
+///   para el operador por la señal del bootstrap. Decisiones legítimas; lo que
+///   no sería legítimo es que existieran sin estar declaradas aquí.
 ///
 /// **Regla de mantenimiento:** cuando añadas una garantía al puerto, la añades
 /// aquí en el mismo cambio. El contrato y su verificación viajan juntos.

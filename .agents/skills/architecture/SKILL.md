@@ -107,7 +107,7 @@ nada de `URLSession` suelto. Detalle en `domain/SKILL.md`.
 |---|---|
 | Composition root | `Sources/App/BaselineApp.swift` |
 | Rutas y su Coordinator | `Sources/Features/<Feature>/<Feature>Route.swift` + `Sources/App/` |
-| Módulos de DI | `Sources/Features/<Feature>/<Feature>Module.swift` |
+| Módulos de DI | `Sources/App/<Feature>/<Feature>Module.swift` — en `App/`, NO en `Features/`: registran implementaciones concretas y construyen `APIService`, y `layers.conf:56` prohíbe `CoreNetworking` a `*/Features/*`. (Corregido tras el PRD 0002: la 1ª pasada de su design-review cazó este mismo error en el PRD y nadie lo propagó aquí) |
 | Identidad de los ViewModels | `Sources/App/<Feature>/<Feature>ScreenStore.swift` |
 | Configuración de red y credencial | `Sources/Data/<Feature>/<Feature>Configuration.swift` |
 | Reglas de capa ejecutables | `tools/layers.conf` |

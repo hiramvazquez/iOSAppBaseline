@@ -303,7 +303,15 @@ CoordinatorView(coordinator: coordinator) { MoviesRouteBuilder.view(for: $0, sto
 > terminal): se cierra con el **slice de detalle** — el mismo que trae el `Router` —, porque es
 > cuando existe un push/pop real que lo ejercite. No «algún día»: un evento planificado.
 
-**El `Router` no entra en este PRD** (§5b): con una sola ruta no hay a dónde navegar. Cuando entre,
+**El `Router` entró a MEDIAS, y así se decidió** *(absorbido aquí tras el ensayo del revisor
+E2E — la decisión vivía solo en el change log y el código, y esta sección la contradecía en
+negrita: séptima instancia de «corregir donde señalaron»)*: el coordinator **SÍ se registra**
+como `any Router<MoviesRoute>` en el contenedor desde `BaselineApp.init`, antes de que SwiftUI
+construya vistas — es el idioma que el owner validó contra un ejemplo externo, y deja el
+composition root enseñando el patrón completo. Lo que NO entra es que el **ViewModel lo
+consuma**: con una sola ruta no hay a dónde navegar. **Residuo declarado en el ledger**: ese
+registro no tiene test propio (vive inline en `init`, fuera de la costura del bootstrap) y su
+condición de cierre es el slice de detalle, cuando el primer `resolve` real lo ejercite. Cuando entre,
 el ViewModel dependerá de `any Router<MoviesRoute>` —el protocolo: seis métodos y ningún estado de
 lectura—, así que no podrá saber dónde está ni resetear el root: solo emitir intención.
 

@@ -3,7 +3,7 @@
 > **GENERADA — NO editar a mano.** Fuente: `tools/findings/ledger.jsonl`.
 > Regenerar: `bash tools/findings/findings.sh render`.
 
-Abiertos: **39** · Cerrados: 22 · Total: 61
+Abiertos: **40** · Cerrados: 22 · Total: 62
 
 ## Abiertos
 
@@ -32,6 +32,7 @@ Abiertos: **39** · Cerrados: 22 · Total: 61
 | `f-e6743298` | medium | owner-decision | `spm-pro/CoreNetworking/Sources/CoreNetworking/RequestInterceptor.swift:130` | Privacidad invertida en los logs de red: la URL va private y el mensaje del servidor va public |
 | `f-ee56ec3` | medium | owner-decision | `tools/check-prd-tree.sh` | check-prd-tree lee la prosa que AVISA de una ruta como si la declarara |
 | `f-f17a5860` | medium | owner-decision | `tools/check-layers-coverage.sh` | Nada vigila que los globs de skill-matrix.conf no enmudezcan |
+| `f-f88eb0fd` | medium | auto-fix | `Sources/App/BaselineApp.swift` | El registro del Router en BaselineApp.init no tiene test propio: la unica pieza del idioma del owner sin red |
 | `f-f957b7f4` | medium | auto-fix | `Config/Debug.xcconfig:7` | El Info.plist compilado no se regenera cuando cambia un include opcional de xcconfig |
 | `f-update-sin-guard` | medium | auto-fix | `tools/findings/findings.sh:242` | update bypasa el guard de terminalidad: resucita un finding cerrado y pisa su resolucion |
 | `f-13afde3c` | low | auto-fix | `scripts/agent-hooks/ (capture de trayectoria)` | La trayectoria registra cd como path en 736 de 2143 Bash: el instrumento del nivel 9 es ciego al 55% del trabajo |

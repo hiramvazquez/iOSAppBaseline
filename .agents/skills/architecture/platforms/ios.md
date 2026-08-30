@@ -172,11 +172,12 @@ La View **no reimplementa carga/vacío/error/contenido**. Los pinta `ScreenConta
 
 ```swift
 struct PopularMoviesView: View {
-    @State private var viewModel: PopularMoviesViewModel
-
-    init(viewModel: PopularMoviesViewModel) {
-        _viewModel = State(wrappedValue: viewModel)
-    }
+    /// `let`, NO `@State` (f-54d7ee41, corregido en el PRD 0002): el dueño de la
+    /// identidad del ViewModel es el ScreenStore del composition root, y un
+    /// `@State` aquí duplicaría esa propiedad — dos dueños que pueden divergir.
+    /// Con `@Observable`, un `let` re-renderiza igual: el tracking es por acceso
+    /// a propiedad, no por el wrapper que sostiene la referencia.
+    let viewModel: PopularMoviesViewModel
 
     var body: some View {
         ScreenContainer(viewModel: viewModel, title: "peliculas.titulo", style: .solid) {
@@ -187,6 +188,10 @@ struct PopularMoviesView: View {
     }
 }
 ```
+
+*(La versión anterior de este ejemplo enseñaba `@State private var viewModel` + init con
+`State(wrappedValue:)` — el patrón exacto que `f-54d7ee41` pagó por quitar. Lo cazó el revisor
+E2E: el refactor corrigió el código y nadie propagó a la skill.)*
 
 Ni un `if phase == …`. Ese es el punto.
 

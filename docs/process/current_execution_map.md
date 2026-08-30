@@ -11,7 +11,7 @@
   (red, pinning, reintentos)—, (2) trae el agentic-workflow-template cableado al stack, y
   (3) su app —listado y detalle de películas contra TMDB— es el **módulo de referencia**: la
   vertical que cruza todas las capas y que las skills citan en vez de describir.
-- **Fase:** **slice 0 de la vertical de películas, listo para commitear.** Listado de populares
+- **Fase:** **vertical de películas entregada y re-arquitecturada sobre los SPM (PRD 0002, las tres fases).** Origen: Listado de populares
   (primera página) cruzando Domain → Data → Features → App, con la suite en verde
   (`bash tools/verify-run.sh`) y `check-layers`/`check-drift` sin errores. Sin paginación, sin
   detalle, sin pósters.
@@ -35,8 +35,8 @@
     se regenera con `xcodegen generate` y no da conflictos de merge.
   - Nivel 0 en ambos targets: Swift 6, `SWIFT_STRICT_CONCURRENCY=complete`, MainActor por
     defecto y warnings como errores.
-  - Los dos SPM entran **por URL publicada y version fijada** (`AppFoundation` 0.1.1,
-    `CoreNetworking` 0.1.3), con un smoke test que los importa y los USA — un `#expect(true)`
+  - Los dos SPM entran **por URL publicada y version fijada** (la versión exacta la fija
+    `Package.resolved`, no esta prosa — aquí hubo un 0.1.3 escrito a mano que ya era 0.1.4), con un smoke test que los importa y los USA — un `#expect(true)`
     habria pasado con el proyecto mal cableado. El `Package.resolved` se versiona: es lo unico
     que hace que el build local y el de CI sean el mismo build.
   - Harness adoptado (caso B de `docs/ADOPTION.md`) con `verify.conf` cableado a

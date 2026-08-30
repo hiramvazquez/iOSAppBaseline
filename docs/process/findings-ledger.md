@@ -3,7 +3,7 @@
 > **GENERADA — NO editar a mano.** Fuente: `tools/findings/ledger.jsonl`.
 > Regenerar: `bash tools/findings/findings.sh render`.
 
-Abiertos: **36** · Cerrados: 19 · Total: 55
+Abiertos: **35** · Cerrados: 20 · Total: 55
 
 ## Abiertos
 
@@ -40,7 +40,6 @@ Abiertos: **36** · Cerrados: 19 · Total: 55
 | `f-6453846` | low | owner-decision | `docs/process/prds/0001-vertical-de-referencia-peliculas.md (DoST NO-TOUCH)` | El comando NO-TOUCH del DoD solo cubre el subconjunto tooling/meta del bloque |
 | `f-66f86136` | low | owner-decision | `.agents/skills/architecture/platforms/` | Las skills de web y android son 10 FILL que nunca se rellenaran en un proyecto iOS |
 | `f-975e3cb1` | low | auto-fix | `tools/semgrep-scan.sh:94` | semgrep-scan.sh --all revienta con TARGETS vacio bajo bash 3.2 (unbound variable) |
-| `f-b6f2c1a4` | low | owner-decision | `.claude/rules/10-ios-ui.md + Sources/Features/Movies/PopularMoviesViewModel.swift` | Unificar el nombre de la intencion: vm.send(...) vs handle(_:) |
 | `f-d4b58c90` | low | auto-fix | `docs/process/current_execution_map.md` | current_execution_map.md punto 1 describe commitear el slice 0 como pendiente, ya commiteado |
 | `f-de18ddb` | low | auto-fix | `tools/harness-report.sh:59` | El contador de FILL de harness-report cuenta los FILL-HECHO como pendientes |
 | `f-e420ff1e` | low | owner-decision | `CLAUDE.md (seccion Maquinaria exclusiva de Claude Code)` | CLAUDE.md anuncia solo /goal y ya hay 5 comandos: los otros 4 son indescubribles |
@@ -57,6 +56,7 @@ Abiertos: **36** · Cerrados: 19 · Total: 55
 | `f-31902e86` | fixed | Refactor (b), 2026-08-28. load() suelto sustituido por enum Action + handle(_:) en PopularMoviesView |
 | `f-3480a974` | fixed | Publicado CoreNetworking 0.1.4 (github.com/hiramvazquez/CoreNetworking, tag 0.1.4, revision 4d299f36 |
 | `f-bba673a7` | fixed | OQ-C autorizada por el owner (2026-08-28): */Features/* y */App/* anadidos a tools/skill-matrix.conf |
+| `f-b6f2c1a4` | fixed | Cerrado por la fase 3 del PRD 0002 (commit 65b5fdb, 2026-08-29): enum Action -> Intent y handle(_:)  |
 | `f-close-guard` | fixed | Guard implementado y verificado reproduciendo el error original contra el ledger real: la resolucion |
 | `f-44fd100c` | fixed | Arreglado en el mismo turno. --force sin --resolution/--reason sale 2 con mensaje que dice que hace  |
 | `f-6d36a878` | fixed | Test reescrito para comprobar las DOS ramas: sin --force rebota y no altera la resolucion; con --for |

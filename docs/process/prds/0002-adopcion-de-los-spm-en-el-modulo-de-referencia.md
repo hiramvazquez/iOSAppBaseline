@@ -1,6 +1,6 @@
 # PRD — Adopción de los SPM en el módulo de referencia
 
-> **Tipo:** Forward · **Status:** ✅ Approved (owner, 2026-08-29)
+> **Tipo:** Forward · **Status:** 🔨 In progress — fase 3 entregada (65b5fdb); quedan 1 y 2
 > **Autor:** sesión de agente (Claude) · **Fecha:** 2026-08-29
 > **Tracking:** `f-f2a4ca6e` · `f-a3b6dafc` · `f-e008f6f` · `f-71c669cc` · `f-54d7ee41` · `f-b6f2c1a4`
 > **Design-review:** SEIS pasadas (§17: RED 13 · RED 9 · AMBER 8 · RED 7 · RED 7 · RED 5), cada
@@ -156,7 +156,7 @@ Sources/App/Movies/MoviesRouteBuilder.swift             ← [SLICE-FUTURO] fase 
 Sources/App/Movies/MoviesScreenStore.swift             ← TOCAR: pasa a estar justificado de verdad
 Tests/UnitTests/Movies/MoviesModuleTests.swift         ← [SLICE-FUTURO] fase 1: registra lo que promete
 Tests/UnitTests/Movies/MoviesRouteBuilderTests.swift    ← [SLICE-FUTURO] fase 2: G4, el closure usa el store
-Tests/UnitTests/Movies/PopularMoviesViewModelTests.swift ← TOCAR: 10 llamadas a handle(_:) que la fase 3 renombra
+Tests/UnitTests/Movies/PopularMoviesViewModelTests.swift ← TOCADO por la fase 3: sus llamadas a send(_:) (el conteo exacto lo da grep, no esta prosa — la cifra que había aquí ya estaba mal)
 Tests/UnitTests/Movies/MoviesScreenStoreTests.swift    ← TOCAR: handle(_:) + dos PopularMoviesViewModel(repository:)
 Tests/UnitTests/SmokeTests.swift                       ← TOCAR/REVISAR: lee Container.shared y asevera tryResolve == nil
 Tests/UnitTests/Movies/BootstrapTests.swift            ← [SLICE-FUTURO] fase 1: el criterio PRIMARIO de §3

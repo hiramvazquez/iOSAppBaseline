@@ -94,10 +94,8 @@
    `Sources/Data/Movies/TMDBDTOs.swift`, con tests de decodificación directa (sin mock de red)
    que cierran un hueco real: `vote_average` nulo no tenía cobertura en ninguna fixture existente.
 
-   > Nota de convención pendiente: `.claude/rules/10-ios-ui.md` dice que la View «emite intención
-   > (`vm.send(...)`)» y el refactor (b) usó `handle(_:)`. Unificar el nombre **antes** de que
-   > haya una segunda pantalla copiando el patrón — hoy es un renombrado, con dos pantallas es
-   > una migración.
+   > La convención de intención quedó unificada el 2026-08-29 (fase 3 del PRD 0002, `f-b6f2c1a4`
+   > cerrado): `Intent` + `send(_:)`, que es lo que `.claude/rules/10-ios-ui.md` ya prescribía.
 3. **El `1.0.0` de los SPM sigue pendiente, y a proposito.** Publicarlos se adelanto a la
    vertical porque CI no puede resolver una ruta local (`Invalid local package`), pero se
    publicaron en `0.x`: estrenar antes de congelar la API sigue siendo la decision: un `1.0.0`

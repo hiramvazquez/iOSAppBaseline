@@ -41,7 +41,7 @@ struct MoviesScreenStoreTests {
         }
 
         let vm = store.popular()
-        await vm.handle(.alAparecer)
+        await vm.send(.alAparecer)
         #expect(vm.movies == [dune])
 
         // Simula la vuelta del detalle: el closure de rutas se reevalúa.

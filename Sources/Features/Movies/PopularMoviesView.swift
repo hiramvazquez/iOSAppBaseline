@@ -34,8 +34,8 @@ struct PopularMoviesView: View {
             // de lo que el escenario golden 6 pide conservar.
             //
             // `MoviesScreenStore` salva la INSTANCIA del ViewModel; el guard de
-            // `handle(.alAparecer)` salva el escenario. Hacían falta los dos.
-            await viewModel.handle(.alAparecer)
+            // `send(.alAparecer)` salva el escenario. Hacían falta los dos.
+            await viewModel.send(.alAparecer)
         }
     }
 }

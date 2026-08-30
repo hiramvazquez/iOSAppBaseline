@@ -30,7 +30,7 @@ final class PopularMoviesViewModel: BaseViewModel {
     /// **contratos opuestos sobre la repetición**: aparecer no debe recargar,
     /// reintentar debe hacerlo siempre. Con un único `load()` esa distinción no
     /// se podía expresar, y por eso no existía.
-    enum Action: Equatable {
+    enum Intent: Equatable {
         /// La vista se montó. **Idempotente**: la primera carga ocurre una vez.
         case alAparecer
         /// Recarga explícita pedida por el usuario. **Siempre** vuelve a pedir.
@@ -54,8 +54,8 @@ final class PopularMoviesViewModel: BaseViewModel {
     /// —de AppFoundation— y no por `.reintentar`. Lo que sí garantiza este tipo
     /// es que **nadie puede saltarse el guard de idempotencia**: `load()` es
     /// `private`.
-    func handle(_ action: Action) async {
-        switch action {
+    func send(_ intent: Intent) async {
+        switch intent {
         case .alAparecer:
             // La idempotencia de la primera carga (ledger `f-31902e86`).
             //

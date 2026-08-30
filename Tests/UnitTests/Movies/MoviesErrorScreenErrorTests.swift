@@ -65,7 +65,7 @@ struct MoviesErrorScreenErrorTests {
     func elViewModelMuestraElCopyDeDominio() async {
         let sut = PopularMoviesViewModel(repository: RepoQueFalla(error: .unauthorized))
 
-        await sut.handle(.alAparecer)
+        await sut.send(.alAparecer)
 
         guard case .error(let mostrado) = sut.phase else {
             Issue.record("esperaba .error, hay \(sut.phase)")

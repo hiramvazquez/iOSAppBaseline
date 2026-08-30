@@ -54,7 +54,7 @@ struct PopularMoviesViewModelTests {
     func cargaConPeliculas() async {
         let (sut, _) = Self.sut(.success([Self.dune, Self.arrival]))
 
-        await sut.handle(.alAparecer)
+        await sut.send(.alAparecer)
 
         #expect(sut.phase == .content)
         #expect(sut.movies == [Self.dune, Self.arrival])
@@ -67,7 +67,7 @@ struct PopularMoviesViewModelTests {
     func cargaVacia() async {
         let (sut, _) = Self.sut(.success([]))
 
-        await sut.handle(.alAparecer)
+        await sut.send(.alAparecer)
 
         #expect(sut.phase == .empty)
         #expect(sut.movies.isEmpty)
@@ -92,8 +92,8 @@ struct PopularMoviesViewModelTests {
     func alAparecerEsIdempotente() async {
         let (sut, repo) = Self.sut(.success([Self.dune]))
 
-        await sut.handle(.alAparecer)
-        await sut.handle(.alAparecer)
+        await sut.send(.alAparecer)
+        await sut.send(.alAparecer)
 
         #expect(repo.invocaciones == 1, "la segunda aparición volvió a pedir al puerto")
         #expect(sut.phase == .content)
@@ -106,9 +106,9 @@ struct PopularMoviesViewModelTests {
     @Test("alAparecer sobre contenido ya cargado → ni repinta carga ni pierde las películas")
     func alAparecerNoDestruyeElContenido() async {
         let (sut, _) = Self.sut(.success([Self.dune, Self.arrival]))
-        await sut.handle(.alAparecer)
+        await sut.send(.alAparecer)
 
-        await sut.handle(.alAparecer)
+        await sut.send(.alAparecer)
 
         #expect(sut.phase == .content, "volvió a una fase que no es contenido")
         #expect(sut.movies == [Self.dune, Self.arrival], "perdió o reordenó las películas")
@@ -126,11 +126,11 @@ struct PopularMoviesViewModelTests {
     @Test("alAparecer sobre .empty → vuelve a pedir: el usuario no queda atrapado")
     func alAparecerRecuperaDeVacio() async {
         let (sut, repo) = Self.sut(.success([]))
-        await sut.handle(.alAparecer)
+        await sut.send(.alAparecer)
         #expect(sut.phase == .empty)
         repo.resultado = .success([Self.dune])
 
-        await sut.handle(.alAparecer)
+        await sut.send(.alAparecer)
 
         #expect(repo.invocaciones == 2, "quedó atrapado en .empty sin forma de recargar")
         #expect(sut.phase == .content)
@@ -152,10 +152,10 @@ struct PopularMoviesViewModelTests {
     @Test("reintentar tras un error → vuelve a pedir al puerto")
     func reintentarRecarga() async {
         let (sut, repo) = Self.sut(.failure(.offline))
-        await sut.handle(.alAparecer)
+        await sut.send(.alAparecer)
         repo.resultado = .success([Self.dune])
 
-        await sut.handle(.reintentar)
+        await sut.send(.reintentar)
 
         #expect(repo.invocaciones == 2)
         #expect(sut.phase == .content)
@@ -168,7 +168,7 @@ struct PopularMoviesViewModelTests {
     func errorDelPuerto() async {
         let (sut, _) = Self.sut(.failure(.offline))
 
-        await sut.handle(.alAparecer)
+        await sut.send(.alAparecer)
 
         guard case .error = sut.phase else {
             Issue.record("esperaba .error, hay \(sut.phase)")
@@ -187,7 +187,7 @@ struct PopularMoviesViewModelTests {
     func conexionInterrumpidaNoDejaLaPantallaColgada() async {
         let (sut, _) = Self.sut(.failure(.connectionInterrupted))
 
-        await sut.handle(.alAparecer)
+        await sut.send(.alAparecer)
 
         #expect(sut.phase != .loading(.fullScreen))
         #expect(sut.phase != .idle)

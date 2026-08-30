@@ -1,9 +1,15 @@
 # PRD — Adopción de los SPM en el módulo de referencia
 
-> **Tipo:** Forward · **Status:** Draft
+> **Tipo:** Forward · **Status:** ✅ Approved (owner, 2026-08-29)
 > **Autor:** sesión de agente (Claude) · **Fecha:** 2026-08-29
 > **Tracking:** `f-f2a4ca6e` · `f-a3b6dafc` · `f-e008f6f` · `f-71c669cc` · `f-54d7ee41` · `f-b6f2c1a4`
-> **Design-review:** pendiente — **obligatorio antes de `Approved`** (AGENTS.md §12)
+> **Design-review:** SEIS pasadas (§17: RED 13 · RED 9 · AMBER 8 · RED 7 · RED 7 · RED 5), cada
+> una con sus hallazgos verificados y corregidos en el mismo día. El cierre no fue un GREEN: la
+> 6ª terminó con su único bloqueante resuelto aplicando **la firma exacta que el propio reviewer
+> dio como contrato completo** (`onMisconfiguration` inyectable), y con su nota literal de que
+> «lo que toca después es el `reviewer` sobre el código, no un séptimo design-review — la
+> decisión es tuya y del owner». El owner ejerció esa decisión: «adelante y desbloquea» (2026-08-29).
+> La fase 3 fue declarada implementable por el reviewer con cero hallazgos que la tocaran.
 
 > ⚠️ **Por qué esto es un PRD y no un ADR, que no es obvio.** `prd-lifecycle.md` dice
 > «Refactor sin cambio de comportamiento → **No** — ADR ligero si es decisión reusable», y este

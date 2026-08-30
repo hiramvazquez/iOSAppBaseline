@@ -3,7 +3,7 @@
 > **GENERADA — NO editar a mano.** Fuente: `tools/findings/ledger.jsonl`.
 > Regenerar: `bash tools/findings/findings.sh render`.
 
-Abiertos: **35** · Cerrados: 18 · Total: 53
+Abiertos: **36** · Cerrados: 18 · Total: 54
 
 ## Abiertos
 
@@ -17,6 +17,7 @@ Abiertos: **35** · Cerrados: 18 · Total: 53
 | `f-e008f6f` | high | owner-decision | `tools/ (propuesta: check-platform-adoption.sh + platform-adoption.conf)` | No hay ningun detector de OMISION: nada comprueba que el codigo use los mecanismos que AGENTS.md 3 prescribe |
 | `f-f2a4ca6e` | high | owner-decision | `Sources/App/**` | El modulo de referencia NO usa Coordinator/Router ni Container/@Inject de AppFoundation, que AGENTS.md SS3 prescribe |
 | `f-2db8ecf0` | medium | owner-decision | `docs/process/current_execution_map.md:56 / tools/` | Nada contrasta un diseno prescrito en docs contra layers.conf: se corrigio el caso (f-3480a974) y no la clase |
+| `f-3d60d1f6` | medium | owner-decision | `Sources/Features/Movies/PopularMoviesView.swift:17` | El titulo de la pantalla es un literal en el codigo: no hay String Catalog en el repo |
 | `f-52ef5f6d` | medium | auto-fix | `Sources/Data/Movies/TMDBPopularMoviesRepository.swift:35` | Decision pendiente: CancellationError prescrito vs .unknown implementado |
 | `f-54d7ee41` | medium | auto-fix | `Sources/Features/Movies/PopularMoviesView.swift:10` | @State private var viewModel duplica el dueno de la identidad |
 | `f-694c2009` | medium | auto-fix | `docs/process/current_execution_map.md` | current_execution_map.md afirma que gates.yml nunca ha corrido, y si ha corrido |

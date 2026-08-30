@@ -79,7 +79,7 @@ Medible, y verificable por comando:
 
 | Condición | Cómo se verifica |
 |---|---|
-| **PRIMARIO — el cableado REAL de la app** | `BootstrapTests.swift`, DOS direcciones: (a) `bootstrap(container: propio)` con módulos → lo resuelto **no** es `CableadoRotoRepository`; (b) **el recíproco que fija el arreglo de OQ-4**: `bootstrap` sobre un contenedor **vacío** → lo devuelto **sí** es `CableadoRotoRepository` — sin (b), la mutación `?? SinCredencialRepository()` (el fail-silent que la 4ª pasada bloqueó) pasa todos los gates. Además construye `Coordinator<MoviesRoute>` e invoca `MoviesRouteBuilder`. ⚠️ (a) asevera «no es el fallback» y NO «es `TMDBPopularMoviesRepository`», **a propósito**: en CI no hay `Secrets.xcconfig`, el módulo registra `SinCredencialRepository`, y endurecer la aserción al tipo real rompería CI siempre — no lo «arregles» |
+| **PRIMARIO — el cableado REAL de la app** | `BootstrapTests.swift`, DOS direcciones: (a) `bootstrap(container: propio)` con módulos → lo resuelto **no** es `CableadoRotoRepository`; (b) **el recíproco que fija el arreglo de OQ-4**: `bootstrap` sobre un contenedor **vacío** → lo devuelto **sí** es `CableadoRotoRepository` — sin (b), la mutación `?? SinCredencialRepository()` (el fail-silent que la 4ª pasada bloqueó) pasa todos los gates. El recíproco (b) pasa un **espía** como `onMisconfiguration` — el default hace `assertionFailure` y atraparía el runner en Debug — y asevera **también que la señal se emitió**, con lo que borrar el log o el assert mata un test. Además construye `Coordinator<MoviesRoute>` e invoca `MoviesRouteBuilder`. ⚠️ (a) asevera «no es el fallback» y NO «es `TMDBPopularMoviesRepository`», **a propósito**: en CI no hay `Secrets.xcconfig`, el módulo registra `SinCredencialRepository`, y endurecer la aserción al tipo real rompería CI siempre — no lo «arregles» |
 | El **módulo** registra lo que promete | G3: test de la fase 1, en contenedor propio |
 | El **composition root usa** el módulo | `grep -rnE '^[^/]*register\(modules:' --include="*.swift" Sources/App/` |
 | Existe un `DependencyModule` | `grep -rnE '^[^/]*: DependencyModule' --include="*.swift" Sources/App/` |
@@ -232,20 +232,34 @@ clase**, así que ahí dentro no se puede anotar un closure del paquete sin escr
 
 ```
 BaselineApp (composition root)
-  ├─ bootstrap(container:) -> any PopularMoviesRepository    ← COSTURA invocable desde un test
-  │    │  Registra EN EL CONTENEDOR RECIBIDO — la app le pasa .shared, los tests
-  │    │  el suyo propio. Sin esto, el test primario mutaría el global (prohibido
-  │    │  por la skill y por G3) o probaría un grafo distinto del de la app.
+  ├─ bootstrap(container:onMisconfiguration:) -> any PopularMoviesRepository
+  │    │  COSTURA invocable desde un test. Registra EN EL CONTENEDOR RECIBIDO —
+  │    │  la app le pasa .shared, los tests el suyo propio. Sin esto, el test
+  │    │  primario mutaría el global (prohibido por la skill y por G3) o
+  │    │  probaría un grafo distinto del de la app.
+  │    │
+  │    │  onMisconfiguration: (String) -> Void
+  │    │      = { AppLog.error($0); assertionFailure($0) }   ← default de PRODUCCIÓN
+  │    │  La señal de mala configuración se INYECTA (6ª pasada): el default hace
+  │    │  log + assert — lo que §4.1 y §13 prometen —, y el test recíproco pasa
+  │    │  un ESPÍA: sin trap, y asevera el tipo devuelto Y que la señal se
+  │    │  emitió. Con el assert escrito a fuego dentro, el recíproco no podía
+  │    │  ejecutarse: assertionFailure atrapa el proceso en Debug, que es la
+  │    │  config con la que corren los tests (project.yml), y ni Swift Testing
+  │    │  ni XCTest capturan un trap in-process.
+  │    │
   │    ├─ container.register(modules: [MoviesModule()])      ← fase 1
   │    │     └─ si TMDBConfiguration.live() == nil, el MÓDULO registra
   │    │        SinCredencialRepository  ← el guard de la credencial vive AQUÍ
-  │    └─ tryResolve() ?? CableadoRotoRepository()           ← OQ-4: no crashea. LOGEA
-  │         │                                                  y assertionFailure en DEBUG
-  │         └─ el assert va AQUÍ y no en validateRegistrations: ese corre DESPUÉS
-  │            del bootstrap, así que en DEBUG el fallback ya habría ocurrido en
-  │            silencio antes de que la validación llegara a mirar
-  ├─ #if DEBUG validateRegistrations([...])                 ← el bootstrap falla temprano
+  │    └─ tryResolve() ?? { onMisconfiguration(...); return CableadoRotoRepository() }()
+  │         │                                                ← OQ-4: no crashea en release
+  │         └─ la señal va AQUÍ y no en validateRegistrations: ese corre DESPUÉS
+  │            del bootstrap, es un aviso adicional y NO la protección — llegaría
+  │            tarde: el fallback ya habría ocurrido antes de que mirara
+  ├─ #if DEBUG validateRegistrations([...])                 ← aviso ADICIONAL; no es la
+  │                                                            protección (llega tarde, ver arriba)
   ├─ Coordinator<MoviesRoute>(root: .listado)               ← fase 2
+  ├─ MoviesScreenStore(makePopular: { PopularMoviesViewModel(repository: ↑ lo que devolvió bootstrap) })
   └─ AppCoordinatorView(coordinator:store:)
         └─ CoordinatorView { route in ... store.popular() } ← el closure SOLO ensambla
                                      ↑
@@ -359,7 +373,7 @@ refactor interno y el comportamiento no cambia. Si una fase se tuerce, se revier
 | `@Inject` sin `init(container:)` haría los tests dependientes del contenedor global | **No aplica en este PRD (OQ-3): cero usos de `@Inject`**, y §8 lo declara anti-feature. La regla queda viva en `architecture/platforms/ios.md` §4 para cuando aparezca una dependencia transversal |
 | Un `reviewer` que mute código deja el árbol sucio y tumba el `verify-marker` | Pasó el 2026-08-29: se pedirá mutar en `git worktree` aparte y comprobar `git status --porcelain` antes de terminar |
 | El refactor arregla el estado pero **no impide la reincidencia** | ⚠️ **Sin mitigación en este PRD, por decisión.** OQ-1 mandó el detector de omisión a otro PRD, así que `f-e008f6f` queda abierto **a propósito**: el siguiente slice puede desviarse y ningún gate lo vería. Riesgo aceptado, no cubierto |
-| **La fase 1 degrada una garantía del compilador a un `fatalError` de runtime.** Hoy `repositorio() -> any PopularMoviesRepository` es total y el compilador la verifica. Con `Container`, `resolve` hace `fatalError` si falta el registro, y la trampa de la **clave por tipo estático** hace que registrar el concreto y resolver el protocolo explote **en runtime**. `validateRegistrations` es solo DEBUG. Choca con §4.1, con AGENTS.md §2 («hacer el error imposible por tipo antes que detectarlo después») y con §14.1 — y pone en riesgo la promesa escrita en `BaselineApp.swift:20-25`: *«un clon recién hecho nunca se rompe por un archivo que no está»* | ✅ **Resuelto (OQ-4, refinado en la 4ª pasada): `tryResolve` + fallback a `CableadoRotoRepository`** — un tipo NUEVO que logea y hace `assertionFailure` en DEBUG, **no** `SinCredencialRepository` (reutilizarlo era fail-silent: dos causas indistinguibles, prohibido por §6). La protección real es el test primario de §3, que invoca el bootstrap y falla si lo resuelto es el fallback; el log y el assert son diagnóstico de segunda línea |
+| **La fase 1 degrada una garantía del compilador a un fallo de runtime** *(identificado en la 4ª pasada como `fatalError`; tras OQ-4 ya ni crashea: se degrada — ver §4.1)*. Hoy `repositorio() -> any PopularMoviesRepository` es total y el compilador la verifica. Con `Container`, `resolve` hace `fatalError` si falta el registro, y la trampa de la **clave por tipo estático** hace que registrar el concreto y resolver el protocolo explote **en runtime**. `validateRegistrations` es solo DEBUG. Choca con §4.1, con AGENTS.md §2 («hacer el error imposible por tipo antes que detectarlo después») y con §14.1 — y pone en riesgo la promesa escrita en `BaselineApp.swift:20-25`: *«un clon recién hecho nunca se rompe por un archivo que no está»* | ✅ **Resuelto (OQ-4, refinado en la 4ª pasada): `tryResolve` + fallback a `CableadoRotoRepository`** — un tipo NUEVO cuya señal —log + `assertionFailure` en DEBUG— entra **inyectada** por `onMisconfiguration` (§7: el default de producción la emite; el test recíproco pasa un espía, porque el assert atraparía el runner), **no** `SinCredencialRepository` (reutilizarlo era fail-silent: dos causas indistinguibles, prohibido por §6). La protección real es el test primario de §3, que invoca el bootstrap y falla si lo resuelto es el fallback; el log y el assert son diagnóstico de segunda línea |
 
 ## 13. Open Questions — **RESUELTAS por el owner (2026-08-29)**
 
@@ -368,7 +382,7 @@ refactor interno y el comportamiento no cambia. Si una fase se tuerce, se revier
 | **OQ-1** | ¿Entra el detector de OMISIÓN (`f-e008f6f`)? | ✅ **En un PRD aparte, después.** El refactor entra ya. Razón: toca `tools/`, que §8 reserva al owner, y meterlo aquí mezclaría código de app con maquinaria del harness — la misma mezcla de naturalezas que el `reviewer-gate` desaconseja con datos medidos. **Consecuencia declarada:** hasta que exista, este refactor arregla el estado pero **no la causa**; el siguiente slice puede desviarse y ningún gate lo vería. `f-e008f6f` queda abierto a propósito |
 | **OQ-2** | ¿La fase 2 entra recortada, sin `any Router`? | ✅ **Sí, recortada.** Con una sola ruta el `Router` entraría con cero call sites. Viaja con el slice de detalle |
 | **OQ-3** | ¿`@Inject` o constructor? | ✅ **Todo por constructor.** No hay ninguna dependencia transversal en el módulo (ni analítica ni logger propio), así que `@Inject` queda **declarado como no usado, y por qué** — que documenta mejor que usarlo por usarlo. La regla de §4.2 sigue viva para cuando aparezca una |
-| **OQ-4** | ¿Qué protege el arranque en **release** si falta un registro? | ✅ **Decisión del owner: no crashear** — preserva la promesa de `BaselineApp.swift:20-25`. **Mecanismo refinado tras la 4ª pasada del design-review** (la forma original de esta acta —caer a `SinCredencialRepository`— era fail-silent y §6 lo prohíbe; el refinamiento ejecuta la decisión, no la cambia): el fallback es **`CableadoRotoRepository`**, un tipo nuevo con el mismo copy vago que **logea y hace `assertionFailure` en DEBUG** — un grafo mal registrado es error de programación, no input recuperable (§5). Lo que impide que llegue a release es el **test primario de §3** contra el bootstrap real; el log y el assert lo hacen diagnosticable si aun así ocurre |
+| **OQ-4** | ¿Qué protege el arranque en **release** si falta un registro? | ✅ **Decisión del owner: no crashear** — preserva la promesa de `BaselineApp.swift:20-25`. **Mecanismo refinado tras la 4ª pasada del design-review** (la forma original de esta acta —caer a `SinCredencialRepository`— era fail-silent y §6 lo prohíbe; el refinamiento ejecuta la decisión, no la cambia): el fallback es **`CableadoRotoRepository`**, un tipo nuevo con el mismo copy vago cuya señal —**log + `assertionFailure` en DEBUG**— entra **inyectada** por `onMisconfiguration` (§7), porque escrita a fuego el test recíproco no podía ejecutarse — un grafo mal registrado es error de programación, no input recuperable (§5). Lo que impide que llegue a release es el **test primario de §3** contra el bootstrap real; el log y el assert lo hacen diagnosticable si aun así ocurre |
 | **OQ-5** | ¿Cómo se verifica la equivalencia de UI sin UI tests? | ✅ **Checklist manual en simulador**, al cerrar la fase 2: título visible, botón atrás, safe areas, pantalla de error y ES/EN, con capturas anotadas en este PRD. Es **evidencia declarada**, no automática — y eso se dice, en vez de dejar que un ítem del DoD lo parezca. Montar UI tests es un trabajo con entidad propia: su propio PRD |
 | **OQ-6** | El literal `"Películas populares"`: ¿se localiza aquí? | ✅ **Al ledger, no a este PRD.** Localizarlo exige crear el String Catalog y decidir la convención de claves — un cambio con entidad propia que no debe colarse dentro de un refactor de arquitectura. §1.3 se cumple registrándolo, que es lo que §10 llama cerrar |
 
@@ -386,6 +400,8 @@ del sistema queda oculta en todas las rutas (§9, OQ-5). Las referencias son `ar
 - [ ] `BootstrapTests` cubre **las dos direcciones** de §3 — incluida la recíproca (contenedor
       vacío → `CableadoRotoRepository`), que es la que impide revertir el arreglo de OQ-4 sin
       que ningún test lo vea.
+- [ ] El recíproco asevera **la señal de `onMisconfiguration`**, no solo el tipo: borrar el log
+      o el assert del default de producción tiene que matar un test.
 - [ ] **Checklist manual de UI en simulador** (OQ-5) ejecutado al cerrar la fase 2 y sus capturas
       anotadas aquí: título, botón atrás, safe areas, pantalla de error, ES/EN. Es evidencia
       declarada, no automática.
@@ -420,6 +436,7 @@ del sistema queda oculta en todas las rutas (§9, OQ-5). Las referencias son `ar
 
 | Fecha | Cambio | Quién |
 |---|---|---|
+| 2026-08-29 | **6ª pasada: 🔴 RED (5).** Dos arreglos de la 5ª se anulaban entre sí: el `assertionFailure` escrito a fuego en el `??` atrapa el proceso en Debug —la config de los tests—, así que el test recíproco que fija OQ-4 **no podía ejecutarse**: el runner moría antes de aseverar. La salida previsible era borrar una de las dos protecciones bloqueadas en la 4ª/5ª. Arreglo: la señal se **inyecta** (`onMisconfiguration`, default de producción = log+assert; el test pasa un espía y asevera también la señal — con lo que borrar el log o el assert ahora mata un test). Sexta instancia del mecanismo «arreglar aquí, romper allá»: esta vez entre dos arreglos de la misma pasada | agente |
 | 2026-08-29 | **5ª pasada: 🔴 RED (7).** §12 y §13 —el acta del owner— seguían prescribiendo el fallback a `SinCredencialRepository` que la 4ª rechazó: quinta instancia de «corregir donde señalaron, no donde la afirmación también vivía», esta vez en el sitio con más autoridad del documento. Corregido: ambas celdas refinadas a `CableadoRotoRepository` + assert; el test **recíproco** (contenedor vacío → fallback) que fija el arreglo contra la mutación que lo revierte; `bootstrap` registra en el contenedor **recibido**; el assert va en el `??`, no en `validateRegistrations`, que corre después; la trampa de CI documentada en la fila primaria | agente |
 | 2026-08-29 | **4ª pasada: 🔴 RED (7).** El fallback de OQ-4 era fail-silent (§6: nunca) e invalidaba G2. Diseño refinado: tipo propio que logea + `bootstrap(container:)` invocable desde el test primario. §4.1 declaraba la salvedad equivocada, tapándolo | agente |
 | 2026-08-29 | **Owner cierra OQ-1 a OQ-6** (§13), propagadas a §7, §8, §12, §15 y §16 | owner |

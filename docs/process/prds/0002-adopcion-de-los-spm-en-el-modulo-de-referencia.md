@@ -79,7 +79,7 @@ Medible, y verificable por comando:
 
 | Condición | Cómo se verifica |
 |---|---|
-| **PRIMARIO — el cableado REAL de la app** | `BootstrapTests.swift`: invoca `BaselineApp.bootstrap(container:)` —el grafo de verdad, no uno de mentira— y asevera que lo resuelto **no** es `CableadoRotoRepository`, además de construir `Coordinator<MoviesRoute>` e invocar `MoviesRouteBuilder`. **Un comentario no puede satisfacer una compilación, y un test que construye tipos sueltos no puede demostrar que la app los use** |
+| **PRIMARIO — el cableado REAL de la app** | `BootstrapTests.swift`, DOS direcciones: (a) `bootstrap(container: propio)` con módulos → lo resuelto **no** es `CableadoRotoRepository`; (b) **el recíproco que fija el arreglo de OQ-4**: `bootstrap` sobre un contenedor **vacío** → lo devuelto **sí** es `CableadoRotoRepository` — sin (b), la mutación `?? SinCredencialRepository()` (el fail-silent que la 4ª pasada bloqueó) pasa todos los gates. Además construye `Coordinator<MoviesRoute>` e invoca `MoviesRouteBuilder`. ⚠️ (a) asevera «no es el fallback» y NO «es `TMDBPopularMoviesRepository`», **a propósito**: en CI no hay `Secrets.xcconfig`, el módulo registra `SinCredencialRepository`, y endurecer la aserción al tipo real rompería CI siempre — no lo «arregles» |
 | El **módulo** registra lo que promete | G3: test de la fase 1, en contenedor propio |
 | El **composition root usa** el módulo | `grep -rnE '^[^/]*register\(modules:' --include="*.swift" Sources/App/` |
 | Existe un `DependencyModule` | `grep -rnE '^[^/]*: DependencyModule' --include="*.swift" Sources/App/` |
@@ -117,10 +117,13 @@ Medible, y verificable por comando:
    `ios.md` §4 documenta— deja de ser un error de compilación. Y con la resolución de OQ-4 **ni
    siquiera es un `fatalError`: es una degradación**, que es una salvedad distinta y **peor**,
    porque un crash de bootstrap es ruidoso e imposible de ignorar y una degradación no.
-   Por eso OQ-4 **no se queda en «no crashear»**: el fallback usa un tipo propio que **logea**, y
-   el bootstrap se extrae a una costura que un test de nivel 0 invoca. AGENTS.md §6 permite
-   preservar la operación principal, pero exige que el fallo **se haga visible**: «Fail-silent
-   nunca». Las dos mitades, o ninguna.
+   Por eso OQ-4 **no se queda en «no crashear»** — y con la jerarquía honesta: **lo que impide
+   que un cableado roto llegue a release es el test primario de §3**, que invoca el bootstrap real
+   en `verify-run` de cada fase y en CI. El log y el `assertionFailure` en DEBUG son diagnóstico
+   de segunda línea, no la protección: esta app no tiene telemetría (OQ-3), así que un log en el
+   dispositivo de un usuario no lo lee nadie — «visible» sin destinatario sería sobrevender.
+   AGENTS.md §6 exige que el fallo se haga visible («Fail-silent nunca») y §5 que los errores de
+   programación aserten: un grafo mal registrado es error de programación, no input recuperable.
 2. **Constructor injection primero; `@Inject` solo con escape hatch.** `@Inject` resuelve de
    `Container.shared` y cachea para siempre, así que un tipo con `@Inject` **sin `init(container:)`
    no se puede testear con un contenedor propio** — justo lo que §3 exige. Ese detalle salió de la
@@ -139,7 +142,9 @@ Sources/Features/Movies/MoviesRoute.swift              ← [SLICE-FUTURO] fase 2
 Sources/App/Movies/MoviesModule.swift                  ← [SLICE-FUTURO] fase 1: DependencyModule, registra adapters
 Sources/Features/Movies/PopularMoviesViewModel.swift   ← TOCAR: enum Intent + send(_:). SIN any Router (ver 5b)
 Sources/Features/Movies/PopularMoviesView.swift        ← TOCAR: deja de poseer identidad (f-54d7ee41)
-Sources/App/BaselineApp.swift                          ← TOCAR: Container + Coordinator
+Sources/App/BaselineApp.swift                          ← TOCAR: bootstrap(container:) + Coordinator;
+                                                          aquí nace CableadoRotoRepository, junto a
+                                                          SinCredencialRepository que ya vive aquí
 Sources/App/AppCoordinatorView.swift                   ← [SLICE-FUTURO] fase 2: Coordinator + CoordinatorView
 Sources/App/Movies/MoviesRouteBuilder.swift             ← [SLICE-FUTURO] fase 2: la costura que hace G4 escribible
 Sources/App/Movies/MoviesScreenStore.swift             ← TOCAR: pasa a estar justificado de verdad
@@ -228,10 +233,17 @@ clase**, así que ahí dentro no se puede anotar un closure del paquete sin escr
 ```
 BaselineApp (composition root)
   ├─ bootstrap(container:) -> any PopularMoviesRepository    ← COSTURA invocable desde un test
-  │    ├─ register(modules: [MoviesModule()])                ← fase 1
+  │    │  Registra EN EL CONTENEDOR RECIBIDO — la app le pasa .shared, los tests
+  │    │  el suyo propio. Sin esto, el test primario mutaría el global (prohibido
+  │    │  por la skill y por G3) o probaría un grafo distinto del de la app.
+  │    ├─ container.register(modules: [MoviesModule()])      ← fase 1
   │    │     └─ si TMDBConfiguration.live() == nil, el MÓDULO registra
   │    │        SinCredencialRepository  ← el guard de la credencial vive AQUÍ
-  │    └─ tryResolve() ?? CableadoRotoRepository()           ← OQ-4: no crashea, pero LOGEA
+  │    └─ tryResolve() ?? CableadoRotoRepository()           ← OQ-4: no crashea. LOGEA
+  │         │                                                  y assertionFailure en DEBUG
+  │         └─ el assert va AQUÍ y no en validateRegistrations: ese corre DESPUÉS
+  │            del bootstrap, así que en DEBUG el fallback ya habría ocurrido en
+  │            silencio antes de que la validación llegara a mirar
   ├─ #if DEBUG validateRegistrations([...])                 ← el bootstrap falla temprano
   ├─ Coordinator<MoviesRoute>(root: .listado)               ← fase 2
   └─ AppCoordinatorView(coordinator:store:)
@@ -347,7 +359,7 @@ refactor interno y el comportamiento no cambia. Si una fase se tuerce, se revier
 | `@Inject` sin `init(container:)` haría los tests dependientes del contenedor global | **No aplica en este PRD (OQ-3): cero usos de `@Inject`**, y §8 lo declara anti-feature. La regla queda viva en `architecture/platforms/ios.md` §4 para cuando aparezca una dependencia transversal |
 | Un `reviewer` que mute código deja el árbol sucio y tumba el `verify-marker` | Pasó el 2026-08-29: se pedirá mutar en `git worktree` aparte y comprobar `git status --porcelain` antes de terminar |
 | El refactor arregla el estado pero **no impide la reincidencia** | ⚠️ **Sin mitigación en este PRD, por decisión.** OQ-1 mandó el detector de omisión a otro PRD, así que `f-e008f6f` queda abierto **a propósito**: el siguiente slice puede desviarse y ningún gate lo vería. Riesgo aceptado, no cubierto |
-| **La fase 1 degrada una garantía del compilador a un `fatalError` de runtime.** Hoy `repositorio() -> any PopularMoviesRepository` es total y el compilador la verifica. Con `Container`, `resolve` hace `fatalError` si falta el registro, y la trampa de la **clave por tipo estático** hace que registrar el concreto y resolver el protocolo explote **en runtime**. `validateRegistrations` es solo DEBUG. Choca con §4.1, con AGENTS.md §2 («hacer el error imposible por tipo antes que detectarlo después») y con §14.1 — y pone en riesgo la promesa escrita en `BaselineApp.swift:20-25`: *«un clon recién hecho nunca se rompe por un archivo que no está»* | ✅ **Resuelto (OQ-4): `tryResolve` + fallback a `SinCredencialRepository`.** En release un registro ausente no crashea: cae al repositorio que ya existe para el caso sin credencial y el usuario ve la pantalla de error de siempre. `validateRegistrations` queda en DEBUG como aviso temprano, no como la protección |
+| **La fase 1 degrada una garantía del compilador a un `fatalError` de runtime.** Hoy `repositorio() -> any PopularMoviesRepository` es total y el compilador la verifica. Con `Container`, `resolve` hace `fatalError` si falta el registro, y la trampa de la **clave por tipo estático** hace que registrar el concreto y resolver el protocolo explote **en runtime**. `validateRegistrations` es solo DEBUG. Choca con §4.1, con AGENTS.md §2 («hacer el error imposible por tipo antes que detectarlo después») y con §14.1 — y pone en riesgo la promesa escrita en `BaselineApp.swift:20-25`: *«un clon recién hecho nunca se rompe por un archivo que no está»* | ✅ **Resuelto (OQ-4, refinado en la 4ª pasada): `tryResolve` + fallback a `CableadoRotoRepository`** — un tipo NUEVO que logea y hace `assertionFailure` en DEBUG, **no** `SinCredencialRepository` (reutilizarlo era fail-silent: dos causas indistinguibles, prohibido por §6). La protección real es el test primario de §3, que invoca el bootstrap y falla si lo resuelto es el fallback; el log y el assert son diagnóstico de segunda línea |
 
 ## 13. Open Questions — **RESUELTAS por el owner (2026-08-29)**
 
@@ -356,7 +368,7 @@ refactor interno y el comportamiento no cambia. Si una fase se tuerce, se revier
 | **OQ-1** | ¿Entra el detector de OMISIÓN (`f-e008f6f`)? | ✅ **En un PRD aparte, después.** El refactor entra ya. Razón: toca `tools/`, que §8 reserva al owner, y meterlo aquí mezclaría código de app con maquinaria del harness — la misma mezcla de naturalezas que el `reviewer-gate` desaconseja con datos medidos. **Consecuencia declarada:** hasta que exista, este refactor arregla el estado pero **no la causa**; el siguiente slice puede desviarse y ningún gate lo vería. `f-e008f6f` queda abierto a propósito |
 | **OQ-2** | ¿La fase 2 entra recortada, sin `any Router`? | ✅ **Sí, recortada.** Con una sola ruta el `Router` entraría con cero call sites. Viaja con el slice de detalle |
 | **OQ-3** | ¿`@Inject` o constructor? | ✅ **Todo por constructor.** No hay ninguna dependencia transversal en el módulo (ni analítica ni logger propio), así que `@Inject` queda **declarado como no usado, y por qué** — que documenta mejor que usarlo por usarlo. La regla de §4.2 sigue viva para cuando aparezca una |
-| **OQ-4** | ¿Qué protege el arranque en **release** si falta un registro? | ✅ **`tryResolve` + fallback a `SinCredencialRepository`.** En release, un registro ausente **no crashea**: cae al mismo repositorio que ya existe para el caso sin credencial, y el usuario ve la pantalla de error de siempre. Preserva literalmente la promesa escrita en `BaselineApp.swift:20-25` («un clon recién hecho nunca se rompe por un archivo que no está»). `validateRegistrations` se mantiene en DEBUG como aviso temprano, **no** como la protección |
+| **OQ-4** | ¿Qué protege el arranque en **release** si falta un registro? | ✅ **Decisión del owner: no crashear** — preserva la promesa de `BaselineApp.swift:20-25`. **Mecanismo refinado tras la 4ª pasada del design-review** (la forma original de esta acta —caer a `SinCredencialRepository`— era fail-silent y §6 lo prohíbe; el refinamiento ejecuta la decisión, no la cambia): el fallback es **`CableadoRotoRepository`**, un tipo nuevo con el mismo copy vago que **logea y hace `assertionFailure` en DEBUG** — un grafo mal registrado es error de programación, no input recuperable (§5). Lo que impide que llegue a release es el **test primario de §3** contra el bootstrap real; el log y el assert lo hacen diagnosticable si aun así ocurre |
 | **OQ-5** | ¿Cómo se verifica la equivalencia de UI sin UI tests? | ✅ **Checklist manual en simulador**, al cerrar la fase 2: título visible, botón atrás, safe areas, pantalla de error y ES/EN, con capturas anotadas en este PRD. Es **evidencia declarada**, no automática — y eso se dice, en vez de dejar que un ítem del DoD lo parezca. Montar UI tests es un trabajo con entidad propia: su propio PRD |
 | **OQ-6** | El literal `"Películas populares"`: ¿se localiza aquí? | ✅ **Al ledger, no a este PRD.** Localizarlo exige crear el String Catalog y decidir la convención de claves — un cambio con entidad propia que no debe colarse dentro de un refactor de arquitectura. §1.3 se cumple registrándolo, que es lo que §10 llama cerrar |
 
@@ -371,6 +383,9 @@ del sistema queda oculta en todas las rutas (§9, OQ-5). Las referencias son `ar
 - [ ] Las tres fases mergeadas, cada una con `verify-run` verde firmado y `reviewer` no-RED.
 - [ ] Cada fila de §3 da el resultado declarado.
 - [ ] G1-G4 pasan (G5 retirado, §9); G3 y G4 son tests nuevos.
+- [ ] `BootstrapTests` cubre **las dos direcciones** de §3 — incluida la recíproca (contenedor
+      vacío → `CableadoRotoRepository`), que es la que impide revertir el arreglo de OQ-4 sin
+      que ningún test lo vea.
 - [ ] **Checklist manual de UI en simulador** (OQ-5) ejecutado al cerrar la fase 2 y sus capturas
       anotadas aquí: título, botón atrás, safe areas, pantalla de error, ES/EN. Es evidencia
       declarada, no automática.
@@ -399,14 +414,19 @@ del sistema queda oculta en todas las rutas (§9, OQ-5). Las referencias son `ar
 
 ## 17. Change log
 
+> Una fila por pasada, la más reciente arriba. La versión anterior de esta tabla mezclaba la 2ª
+> con la 3ª y contaba dos veces la 1ª — la sección cuyo único trabajo es registrar cambios
+> también puede mentir, y el design-review lo cazó (F7, 5ª pasada).
+
 | Fecha | Cambio | Quién |
 |---|---|---|
-| 2026-08-29 | Draft inicial, tras la reescritura de las skills y la auditoría de los dos SPM | agente |
-| 2026-08-29 | **Design-review 🔴 RED 4ª pasada (7).** El fallback de OQ-4 hacía indistinguible un bug de cableado de un estado esperado: fail-silent, prohibido por `AGENTS.md` §6, e invalidaba G2. Corregido con tipo propio que logea + `bootstrap(container:)` invocable desde el test primario. Y §4.1 declaraba la salvedad equivocada, tapándolo | agente |
+| 2026-08-29 | **5ª pasada: 🔴 RED (7).** §12 y §13 —el acta del owner— seguían prescribiendo el fallback a `SinCredencialRepository` que la 4ª rechazó: quinta instancia de «corregir donde señalaron, no donde la afirmación también vivía», esta vez en el sitio con más autoridad del documento. Corregido: ambas celdas refinadas a `CableadoRotoRepository` + assert; el test **recíproco** (contenedor vacío → fallback) que fija el arreglo contra la mutación que lo revierte; `bootstrap` registra en el contenedor **recibido**; el assert va en el `??`, no en `validateRegistrations`, que corre después; la trampa de CI documentada en la fila primaria | agente |
+| 2026-08-29 | **4ª pasada: 🔴 RED (7).** El fallback de OQ-4 era fail-silent (§6: nunca) e invalidaba G2. Diseño refinado: tipo propio que logea + `bootstrap(container:)` invocable desde el test primario. §4.1 declaraba la salvedad equivocada, tapándolo | agente |
 | 2026-08-29 | **Owner cierra OQ-1 a OQ-6** (§13), propagadas a §7, §8, §12, §15 y §16 | owner |
-| 2026-08-29 | **Design-review 🔴 RED 3ª (9, cuatro introducidos por el arreglo de la 2ª) y 🟡 AMBER (8).** Un criterio insatisfacible por el escape de la tabla markdown; la tabla de greps pasa a secundaria y el compilador a primario | agente |
-| 2026-08-29 | **Design-review 🔴 RED 2ª pasada.** Cuatro comprobaciones que no comprobaban | agente |
-| 2026-08-29 | **Design-review 🔴 RED (13 hallazgos) y correcciones.** Los cuatro bloqueantes eran comprobaciones que no comprobaban: un criterio de §3 que ya salía verde casando un comentario; `MoviesModule` colocado en `Features/`, donde `layers.conf:56` lo habría rechazado; un golden (G4) imposible de escribir con una ruta única, que además contradecía la exclusión razonada de otro golden idéntico; y un ítem de DoD infalsificable porque `[SLICE-FUTURO]` lo salta. Corregido también: una afirmación **falsa** de §9 (el golden de «volver del detalle» ya existe y pasa), una dependencia entre fases **inventada**, el orden de fases (3→1→2), `spm-pro/**` en NO-TOUCH (ruta inexistente aquí), tres tests que el refactor rompe y no estaban en §5, y G5 retirado por vacuo | agente |
+| 2026-08-29 | **3ª pasada: 🟡 AMBER (8).** Un criterio **insatisfacible** — el escape de tubería que exige la tabla markdown sobrevive dentro de comillas y en ERE es literal. Tercer bug distinto en la misma tabla de greps: el compilador pasa a criterio primario y los greps a secundarios | agente |
+| 2026-08-29 | **2ª pasada: 🔴 RED (9, cuatro introducidos por el arreglo de la 1ª).** El grep «endurecido» con paréntesis volvía a salir verde (`NavigationStack {` es trailing closure); el filtro anti-comentarios era un no-op; §5 seguía prescribiendo el Router que §5b excluía | agente |
+| 2026-08-29 | **1ª pasada: 🔴 RED (13).** Los cuatro bloqueantes eran comprobaciones que no comprobaban: un criterio verde casando un comentario; `MoviesModule` donde `layers.conf:56` lo rechazaría; un golden imposible con una ruta única; un DoD infalsificable porque `[SLICE-FUTURO]` lo salta. Y una afirmación falsa en §9: el golden de «volver del detalle» ya existía y pasaba | agente |
+| 2026-08-29 | Draft inicial, tras la reescritura de las skills y la auditoría de los dos SPM | agente |
 
 ## 18. Gaps detectados (llenar post-ship)
 

@@ -221,6 +221,7 @@ clase**, así que ahí dentro no se puede anotar un closure del paquete sin escr
 ```
 BaselineApp (composition root)
   ├─ Container.shared.register(modules: [MoviesModule()])   ← fase 1
+  ├─ tryResolve + fallback a SinCredencialRepository         ← OQ-4: NO crashea en release
   ├─ #if DEBUG validateRegistrations([...])                 ← el bootstrap falla temprano
   ├─ Coordinator<MoviesRoute>(root: .listado)               ← fase 2
   └─ AppCoordinatorView(coordinator:store:)
@@ -261,7 +262,10 @@ lectura—, así que no podrá saber dónde está ni resetear el root: solo emit
   enseña el anti-patrón; el bug de `Container` con lifecycles cruzados) se arreglan en su repo.
 - **No se activa SSL pinning.** Es decisión del owner, y pinnear contra una API de terceros
   obliga a rotar la app cada vez que ellos roten certificado.
-- **No se construye el detector de omisión** — ver OQ-1.
+- **No se construye el detector de omisión** (OQ-1): va en su propio PRD, después.
+- **No se localiza el literal `"Películas populares"`** (OQ-6): exige crear el String Catalog y
+  decidir la convención de claves. Se registra en el ledger y se cierra aparte.
+- **No se usa `@Inject`** (OQ-3): no hay ninguna dependencia transversal que lo justifique hoy.
 
 ## 9. Escenarios golden (deben pasar al terminar)
 
@@ -321,18 +325,18 @@ refactor interno y el comportamiento no cambia. Si una fase se tuerce, se revier
 | `@Inject` sin `init(container:)` haría los tests dependientes del contenedor global | **Sin red mecánica en este PRD**: G5 se retiró por vacuo (§9), así que la única cobertura real es la regla de `architecture/platforms/ios.md` §4 y el criterio del `reviewer`. Declarado, no mitigado |
 | Un `reviewer` que mute código deja el árbol sucio y tumba el `verify-marker` | Pasó el 2026-08-29: se pedirá mutar en `git worktree` aparte y comprobar `git status --porcelain` antes de terminar |
 | El refactor arregla el estado pero **no impide la reincidencia** | OQ-1 |
-| **La fase 1 degrada una garantía del compilador a un `fatalError` de runtime.** Hoy `repositorio() -> any PopularMoviesRepository` es total y el compilador la verifica. Con `Container`, `resolve` hace `fatalError` si falta el registro, y la trampa de la **clave por tipo estático** hace que registrar el concreto y resolver el protocolo explote **en runtime**. `validateRegistrations` es solo DEBUG. Choca con §4.1, con AGENTS.md §2 («hacer el error imposible por tipo antes que detectarlo después») y con §14.1 — y pone en riesgo la promesa escrita en `BaselineApp.swift:20-25`: *«un clon recién hecho nunca se rompe por un archivo que no está»* | **OQ-4.** No se da por neutro: o `tryResolve` + fallback a `SinCredencialRepository` en release (preserva la promesa del clon), o el composition root mantiene construcción tipada y `Container` se usa solo en la frontera de módulos |
+| **La fase 1 degrada una garantía del compilador a un `fatalError` de runtime.** Hoy `repositorio() -> any PopularMoviesRepository` es total y el compilador la verifica. Con `Container`, `resolve` hace `fatalError` si falta el registro, y la trampa de la **clave por tipo estático** hace que registrar el concreto y resolver el protocolo explote **en runtime**. `validateRegistrations` es solo DEBUG. Choca con §4.1, con AGENTS.md §2 («hacer el error imposible por tipo antes que detectarlo después») y con §14.1 — y pone en riesgo la promesa escrita en `BaselineApp.swift:20-25`: *«un clon recién hecho nunca se rompe por un archivo que no está»* | ✅ **Resuelto (OQ-4): `tryResolve` + fallback a `SinCredencialRepository`.** En release un registro ausente no crashea: cae al repositorio que ya existe para el caso sin credencial y el usuario ve la pantalla de error de siempre. `validateRegistrations` queda en DEBUG como aviso temprano, no como la protección |
 
-## 13. Open Questions
+## 13. Open Questions — **RESUELTAS por el owner (2026-08-29)**
 
-| # | Pregunta | Por qué la decide el owner |
+| # | Pregunta | Decisión |
 |---|---|---|
-| **OQ-1** | ¿Entra el **detector de omisión** (`f-e008f6f`) —que comprobaría que el código USA lo que §3 prescribe— en este PRD, en otro, o no entra? | Tocaría `tools/`, y §8 exige autorización explícita. **Sin él, este refactor arregla el estado pero no la causa**: el siguiente slice puede volver a desviarse y ningún gate lo vería |
-| **OQ-2** *(reformulada tras el design-review)* | ¿La fase 2 entra **recortada** —`Coordinator` + `CoordinatorView` + `MoviesRoute`, con el golden G4 del builder de rutas, y **sin** `any Router` en el ViewModel, que viaja con el slice de detalle? | La versión anterior preguntaba si la fase 2 entraba sola, apoyándose en una afirmación **falsa** (que el golden de «volver del detalle» no podía escribirse). Sí puede, y de hecho ya existe. La pregunta real es más pequeña: qué parte de la navegación tiene call sites hoy. Mi recomendación: **sí, recortada** |
-| **OQ-4** *(nueva)* | ¿Qué protege el arranque en **release** si falta un registro, o se registra bajo el tipo estático equivocado? | `resolve` hace `fatalError` y `validateRegistrations` solo existe en DEBUG. Hoy esa garantía la da el compilador y la fase 1 la degrada a runtime. Afecta a la promesa de que un clon recién hecho nunca se rompe |
-| **OQ-5** *(nueva)* | ¿Cómo se verifica la equivalencia de UI, si no hay UI tests? | La suite no tiene ni un test de vista, y `CoordinatorView` oculta la barra del sistema en todas las rutas. O checklist manual declarado, o se acepta el riesgo por escrito |
-| **OQ-6** *(nueva)* | El literal `"Películas populares"` de `PopularMoviesView.swift:17`: ¿se localiza en este PRD o va al ledger? | No hay `Localizable.xcstrings` en el repo y AGENTS.md §2 exige String Catalog ES+EN. Las fases 2 y 3 **tocan ese archivo**, así que aplica §1.3 «el que toca, cierra» |
-| **OQ-3** | ¿`@Inject` se usa en algún sitio de este módulo, o todo va por constructor? | Hoy no hay ninguna dependencia transversal (ni analítica ni logger propio). Si la respuesta es «todo por constructor», `@Inject` queda **declarado como no usado y por qué**, que es mejor documentación que usarlo por usarlo |
+| **OQ-1** | ¿Entra el detector de OMISIÓN (`f-e008f6f`)? | ✅ **En un PRD aparte, después.** El refactor entra ya. Razón: toca `tools/`, que §8 reserva al owner, y meterlo aquí mezclaría código de app con maquinaria del harness — la misma mezcla de naturalezas que el `reviewer-gate` desaconseja con datos medidos. **Consecuencia declarada:** hasta que exista, este refactor arregla el estado pero **no la causa**; el siguiente slice puede desviarse y ningún gate lo vería. `f-e008f6f` queda abierto a propósito |
+| **OQ-2** | ¿La fase 2 entra recortada, sin `any Router`? | ✅ **Sí, recortada.** Con una sola ruta el `Router` entraría con cero call sites. Viaja con el slice de detalle |
+| **OQ-3** | ¿`@Inject` o constructor? | ✅ **Todo por constructor.** No hay ninguna dependencia transversal en el módulo (ni analítica ni logger propio), así que `@Inject` queda **declarado como no usado, y por qué** — que documenta mejor que usarlo por usarlo. La regla de §4.2 sigue viva para cuando aparezca una |
+| **OQ-4** | ¿Qué protege el arranque en **release** si falta un registro? | ✅ **`tryResolve` + fallback a `SinCredencialRepository`.** En release, un registro ausente **no crashea**: cae al mismo repositorio que ya existe para el caso sin credencial, y el usuario ve la pantalla de error de siempre. Preserva literalmente la promesa escrita en `BaselineApp.swift:20-25` («un clon recién hecho nunca se rompe por un archivo que no está»). `validateRegistrations` se mantiene en DEBUG como aviso temprano, **no** como la protección |
+| **OQ-5** | ¿Cómo se verifica la equivalencia de UI sin UI tests? | ✅ **Checklist manual en simulador**, al cerrar la fase 2: título visible, botón atrás, safe areas, pantalla de error y ES/EN, con capturas anotadas en este PRD. Es **evidencia declarada**, no automática — y eso se dice, en vez de dejar que un ítem del DoD lo parezca. Montar UI tests es un trabajo con entidad propia: su propio PRD |
+| **OQ-6** | El literal `"Películas populares"`: ¿se localiza aquí? | ✅ **Al ledger, no a este PRD.** Localizarlo exige crear el String Catalog y decidir la convención de claves — un cambio con entidad propia que no debe colarse dentro de un refactor de arquitectura. §1.3 se cumple registrándolo, que es lo que §10 llama cerrar |
 
 ## 14. Mockups / referencias
 
@@ -345,6 +349,9 @@ del sistema queda oculta en todas las rutas (§9, OQ-5). Las referencias son `ar
 - [ ] Las tres fases mergeadas, cada una con `verify-run` verde firmado y `reviewer` no-RED.
 - [ ] Cada fila de §3 da el resultado declarado.
 - [ ] G1-G4 pasan (G5 retirado, §9); G3 y G4 son tests nuevos.
+- [ ] **Checklist manual de UI en simulador** (OQ-5) ejecutado al cerrar la fase 2 y sus capturas
+      anotadas aquí: título, botón atrás, safe areas, pantalla de error, ES/EN. Es evidencia
+      declarada, no automática.
 - [ ] `bash tools/check-layers.sh` y `bash tools/check-drift.sh` sin errores nuevos.
 - [ ] **Cada fase quita el `[SLICE-FUTURO]`** de las líneas de §5 que entrega, **en su mismo
       commit**. Y al cerrar el PRD: `bash tools/check-prd-tree.sh` reporta **`futuros=0`** para
@@ -365,9 +372,7 @@ del sistema queda oculta en todas las rutas (§9, OQ-5). Las referencias son `ar
 ## 16. Próximos pasos
 
 1. `design-reviewer` sobre este PRD. Si sale RED, se corrige **el PRD, no el código** (§1.6).
-2. Decisión del owner sobre **OQ-1 a OQ-6**, y `Status: Approved`. Las tres nuevas (OQ-4
-   `fatalError` en release, OQ-5 verificación de UI, OQ-6 i18n) traen decisiones que la primera
-   versión de este PRD ni planteaba.
+2. ✅ **OQ-1 a OQ-6 resueltas por el owner (2026-08-29)** — ver §13. Falta solo `Status: Approved`.
 3. **Fase 3** (el renombrado), que es la primera del orden 3 → 1 → 2.
 
 ## 17. Change log

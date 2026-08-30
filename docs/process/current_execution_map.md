@@ -69,9 +69,13 @@
    > rellenados los FILL de `process/references/**`. Las skills que gobiernan código de
    > producto quedan a cero FILL (`grep -rc FILL .agents/skills`).
    >
-   > **Pendiente y sin empezar:** el refactor que adopta `Coordinator` + `Container` en el
-   > código (`f-f2a4ca6e`, owner-decision). Va **después** de las skills a propósito: un
-   > refactor hecho leyendo la skill vieja se habría desviado igual.
+   > ✅ **HECHO el 2026-08-29 — PRD 0002, las tres fases** (`f-f2a4ca6e` CERRADO): el módulo de
+   > referencia usa `Container` (MoviesModule + `bootstrap` con señal inyectada), `Coordinator`
+   > registrado como `Router` en el contenedor, y `CoordinatorView` vía `MoviesRouteBuilder` —
+   > cero `NavigationStack` a mano. Seis pasadas de design-review sobre el PRD; mutantes de
+   > OQ-4 y de la Trampa C muertos; checklist de UI en simulador con datos reales. Quedan, con
+   > condición de cierre atada al slice de detalle: consumir el `Router` desde el ViewModel y
+   > el residuo de G4. El detector de omisión sigue en `f-e008f6f` (OQ-1: PRD aparte).
 2. **Tres cambios de arquitectura acordados (2026-08-28) — los tres cerrados.**
    (a) sacar el mapeo transporte→dominio a un `TransportError` **en `CoreNetworking`** (OQ-18,
    2026-08-28) — ✅ **HECHO el 2026-08-28**, publicado como `CoreNetworking 0.1.4` (revisión

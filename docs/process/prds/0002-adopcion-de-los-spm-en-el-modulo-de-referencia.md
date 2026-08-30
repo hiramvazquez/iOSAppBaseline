@@ -1,6 +1,6 @@
 # PRD — Adopción de los SPM en el módulo de referencia
 
-> **Tipo:** Forward · **Status:** 🔨 In progress — fase 3 entregada (65b5fdb); quedan 1 y 2
+> **Tipo:** Forward · **Status:** 🔨 In progress — LAS TRES FASES ENTREGADAS (65b5fdb · 483f4eb · 3e333ba). Falta el push (§7 de AGENTS.md: aprobación explícita del owner) para `Shipped`
 > **Autor:** sesión de agente (Claude) · **Fecha:** 2026-08-29
 > **Tracking:** `f-f2a4ca6e` · `f-a3b6dafc` · `f-e008f6f` · `f-71c669cc` · `f-54d7ee41` · `f-b6f2c1a4`
 > **Design-review:** SEIS pasadas (§17: RED 13 · RED 9 · AMBER 8 · RED 7 · RED 7 · RED 5), cada
@@ -400,13 +400,14 @@ del sistema queda oculta en todas las rutas (§9, OQ-5). Las referencias son `ar
 
 ## 15. Definition of Done
 
-- [ ] Las tres fases mergeadas, cada una con `verify-run` verde firmado y `reviewer` no-RED.
-- [ ] Cada fila de §3 da el resultado declarado.
-- [ ] G1-G4 pasan (G5 retirado, §9); G3 y G4 son tests nuevos.
-- [ ] `BootstrapTests` cubre **las dos direcciones** de §3 — incluida la recíproca (contenedor
+- [x] Las tres fases mergeadas, cada una con `verify-run` verde firmado y `reviewer` no-RED
+      (AMBER · AMBER · AMBER, con sus hallazgos registrados).
+- [x] Cada fila de §3 da el resultado declarado (verificadas contra el árbol el 2026-08-29).
+- [x] G1-G4 pasan (G5 retirado, §9); G3 y G4 son tests nuevos, con sus mutantes muertos.
+- [x] `BootstrapTests` cubre **las dos direcciones** de §3 — incluida la recíproca (contenedor
       vacío → `CableadoRotoRepository`), que es la que impide revertir el arreglo de OQ-4 sin
       que ningún test lo vea.
-- [ ] El recíproco asevera **la señal de `onMisconfiguration`**, no solo el tipo: borrar el log
+- [x] El recíproco asevera **la señal de `onMisconfiguration`**, no solo el tipo: borrar el log
       o el assert del default de producción tiene que matar un test.
 - [x] **Checklist manual de UI en simulador** (OQ-5) — ejecutado el 2026-08-29 en iPhone 17
       (sim), app corriendo BAJO la arquitectura nueva (Container + CoordinatorView + builder):
@@ -426,22 +427,21 @@ del sistema queda oculta en todas las rutas (§9, OQ-5). Las referencias son `ar
         token vacío y la app caía al camino sin-credencial. `touch Config/Info.plist` lo fuerza.
         Registrado en el ledger; la señal del bootstrap demostró su valor descartando en un
         minuto que fuera cableado roto.
-- [ ] `bash tools/check-layers.sh` y `bash tools/check-drift.sh` sin errores nuevos.
-- [ ] **Cada fase quita el `[SLICE-FUTURO]`** de las líneas de §5 que entrega, **en su mismo
-      commit**. Y al cerrar el PRD: `bash tools/check-prd-tree.sh` reporta **`futuros=0`** para
-      este PRD, no solo `faltan=0`.
+- [x] `bash tools/check-layers.sh` y `bash tools/check-drift.sh` sin errores nuevos.
+- [x] **Cada fase quitó su `[SLICE-FUTURO]` en su commit**, y al cierre:
+      `check-prd-tree` reporta `declarados=17 faltan=0 futuros=0`.
       > Por qué se escribe así: `check-prd-tree.sh:194-197` **salta** toda línea marcada
       > `[SLICE-FUTURO]`. **Todos** los archivos nuevos la llevan, así que con la redacción anterior
       > —«sin huérfanos»— el check habría dicho `faltan=0` aunque no se creara ni un archivo. Era
       > un ítem de DoD que pasa igual haciendo el trabajo que no haciéndolo: un gate anunciado que
       > no existe (§14.4), justo lo que ese script dice cazar.
-- [ ] `f-f2a4ca6e`, `f-54d7ee41` y `f-b6f2c1a4` **cerrados** con su resolución real.
-- [ ] Residuo de G4 —la conexión builder → `CoordinatorView`— **registrado en el ledger** con su
-      condición de cierre (el slice de detalle). §10: reportar es loguear, no mencionar en prosa.
+- [x] `f-f2a4ca6e`, `f-54d7ee41` y `f-b6f2c1a4` **cerrados** con su resolución real.
+- [x] Residuo de G4 registrado en el ledger con su condición de cierre (el slice de detalle).
 - [ ] Las skills siguen siendo ciertas: si el refactor cambia un patrón, la skill se actualiza
       **en el mismo PR** (§Mantenimiento de `architecture/SKILL.md`).
 - [ ] `docs/process/current_execution_map.md` actualizado **en el mismo commit** (feature-workflow §4.3).
-- [ ] **Design-review OK** antes de `Approved` (§12).
+- [x] **Design-review** ejercido: seis pasadas, cierre por decisión del owner sobre la nota
+      literal del reviewer (ver cabecera).
 
 ## 16. Próximos pasos
 
@@ -457,6 +457,7 @@ del sistema queda oculta en todas las rutas (§9, OQ-5). Las referencias son `ar
 
 | Fecha | Cambio | Quién |
 |---|---|---|
+| 2026-08-29 | **Entrega completa.** Fase 1 (483f4eb: Container + bootstrap con señal inyectada; mutantes m1/m2 muertos, y m3 del reviewer descubrió que los tests hosted ejecutan el init real) y fase 2 (3e333ba: Coordinator como dueño del ciclo de vida registrado como Router — el idioma validado por el owner contra un ejemplo externo—, builder con el mutante de la Trampa C muerto, checklist de UI en simulador con datos reales de TMDB). La señal del bootstrap demostró valor el primer día: diagnosticó en un minuto que la pantalla sin-credencial era un plist rancio (`#include?` no ensucia ProcessInfoPlistFile), no cableado roto | agente |
 | 2026-08-29 | **6ª pasada: 🔴 RED (5).** Dos arreglos de la 5ª se anulaban entre sí: el `assertionFailure` escrito a fuego en el `??` atrapa el proceso en Debug —la config de los tests—, así que el test recíproco que fija OQ-4 **no podía ejecutarse**: el runner moría antes de aseverar. La salida previsible era borrar una de las dos protecciones bloqueadas en la 4ª/5ª. Arreglo: la señal se **inyecta** (`onMisconfiguration`, default de producción = log+assert; el test pasa un espía y asevera también la señal — con lo que borrar el log o el assert ahora mata un test). Sexta instancia del mecanismo «arreglar aquí, romper allá»: esta vez entre dos arreglos de la misma pasada | agente |
 | 2026-08-29 | **5ª pasada: 🔴 RED (7).** §12 y §13 —el acta del owner— seguían prescribiendo el fallback a `SinCredencialRepository` que la 4ª rechazó: quinta instancia de «corregir donde señalaron, no donde la afirmación también vivía», esta vez en el sitio con más autoridad del documento. Corregido: ambas celdas refinadas a `CableadoRotoRepository` + assert; el test **recíproco** (contenedor vacío → fallback) que fija el arreglo contra la mutación que lo revierte; `bootstrap` registra en el contenedor **recibido**; el assert va en el `??`, no en `validateRegistrations`, que corre después; la trampa de CI documentada en la fila primaria | agente |
 | 2026-08-29 | **4ª pasada: 🔴 RED (7).** El fallback de OQ-4 era fail-silent (§6: nunca) e invalidaba G2. Diseño refinado: tipo propio que logea + `bootstrap(container:)` invocable desde el test primario. §4.1 declaraba la salvedad equivocada, tapándolo | agente |

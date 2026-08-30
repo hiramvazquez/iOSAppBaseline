@@ -57,8 +57,10 @@
 #      mira reintroduce el silencio que esto viene a quitar. Coste medido: 1,5s,
 #      acotado a RING3_RUNS_TIMEOUT (5s por llamada). Se apaga con
 #      RING3_CHECK_RUNS=0, que es lo que hacen los tests para ser hermeticos.
-#      El limite lo impone `_con_limite`, NO `timeout`: macOS —la plataforma de
-#      referencia de este proyecto— no trae `timeout` ni `gtimeout` de fabrica,
+#      El limite lo impone `_con_limite` y SIEMPRE, en toda plataforma: ya no
+#      hay rama que delegue en `timeout` (ver f-804ebee0 mas abajo). Nacio de
+#      que macOS —la plataforma de referencia de este proyecto— no trae
+#      `timeout` ni `gtimeout` de fabrica,
 #      asi que la version anterior de este comentario prometia una cota que en
 #      el Mac del owner no existia y `gh` corria SIN limite dentro del hook de
 #      arranque, con la salida a /dev/null. Una promesa que solo se cumple
@@ -139,9 +141,20 @@ for f in .github/workflows/*.yml .github/workflows/*.yaml .gitlab-ci.yml \
   HAS_CI=yes; CI_FILE="$f"; break
 done
 
-# Cota de tiempo PORTABLE. `timeout` es de coreutils y no viene en macOS; sin
-# esto, "acotado" era una palabra en un comentario. Se prefiere `timeout` si
-# esta (mas exacto), y si no, un perro guardian con kill.
+# Cota de tiempo PORTABLE, y de UNA SOLA RUTA a proposito. `timeout` es de
+# coreutils y no viene en macOS; sin esto, "acotado" era una palabra en un
+# comentario. La version anterior PREFERIA `timeout` cuando estaba y solo caia
+# al perro guardian si faltaba, y esa bifurcacion costo el Anillo 3 entero
+# (f-804ebee0): el gate de pre-push corre en macOS, que no trae `timeout`, y CI
+# corre en Linux, que si — o sea que la rama probada en local NUNCA era la que
+# corria en CI. Y la rama de CI era la mala: GNU `timeout` sin `-k` manda TERM y
+# se queda esperando al hijo, asi que un `trap "" TERM` lo ignoraba y el limite
+# volvia a ser la sugerencia que este mismo archivo presume haber arreglado.
+# Se descarto anadir `-k`: arregla el caso y deja la clase viva (dos ramas, una
+# sola probada) y ademas `-k` no es universal. El perro guardian de abajo
+# escala a KILL, ya esta verificado contra huerfanos, y sobre todo corre IGUAL
+# en las dos plataformas. Se pierde la exactitud de `timeout`; con un sondeo de
+# 0.2s sobre un presupuesto de 5s eso no se nota.
 # La primera version de este fallback lanzaba un `( sleep N; kill )` en
 # background, y el reviewer la tumbo con medicion: 180 llamadas rapidas dejaron
 # 27 procesos `sleep` HUERFANOS vivos a la vez. Matar el subshell contenedor no
@@ -166,16 +179,15 @@ _vivo() { # <pid> — vivo de verdad: ni ausente ni zombi
 }
 _con_limite() { # <segundos> <comando...>
   local secs="$1"; shift
-  if command -v timeout >/dev/null 2>&1; then
-    timeout "$secs" "$@"; return $?
-  fi
   # `set -m` para que el hijo sea LIDER DE SU PROPIO GRUPO y se pueda señalar
   # al grupo entero con `kill -- -$pid`. Sin esto, matar solo al lider no basta:
   # sus nietos heredan el stdout, siguen sujetando el pipe, y una sustitucion
   # `$(...)` se queda bloqueada esperando EOF aunque el proceso vigilado ya este
-  # muerto — o sea, el limite no limitaba nada. Lo cazaron los dos tests de
-  # abajo (un `gh` falso que duerme, y otro con `trap "" TERM`); la version que
-  # solo mataba al lider tardaba los 10s enteros con el limite en 1s.
+  # muerto — o sea, el limite no limitaba nada. Lo cazaron los TRES tests de
+  # abajo: un `gh` falso que duerme, otro con `trap "" TERM`, y el tercero con
+  # un `timeout` del sistema en el PATH — este ultimo es el que hace observable
+  # EN MACOS la rama que solo corria en CI. La version que solo mataba al lider
+  # tardaba los 10s enteros con el limite en 1s.
   local _monitor=""; case "$-" in *m*) _monitor=ya ;; esac
   set -m
   "$@" &

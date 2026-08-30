@@ -337,3 +337,52 @@ _case_gh_que_ignora_term_igual_se_corta() {
   [ "$rc" = "0" ] || { echo "    tras cortar un gh sordo el anillo quedó acusado (exit $rc)"; return 1; }
 }
 test_un_gh_que_ignora_term_se_mata_igual() { _r3_sandbox _case_gh_que_ignora_term_igual_se_corta; }
+
+_case_un_timeout_del_sistema_no_relaja_el_limite() {
+  # LA DIVERGENCIA DE PLATAFORMA, hecha observable donde se desarrolla.
+  # El gate de pre-push corre en macOS —que no trae `timeout`— y CI corre en
+  # Linux, que sí. Mientras `_con_limite` PREFIRIERA `timeout` y retornara ahí,
+  # la rama probada en local no era la que corría en CI: toda la escalada
+  # TERM->KILL vivía solo en el fallback. GNU `timeout` sin `-k` manda TERM y
+  # se queda esperando al hijo, así que un `trap "" TERM` lo ignoraba y el
+  # límite volvía a ser la sugerencia que el fallback había dejado de ser.
+  # No es hipotético: el test de arriba pasaba aquí y fallaba en CI, y ese
+  # 1-de-737 dejó el Anillo 3 rojo desde be521fc (f-804ebee0).
+  # Este test pone en el PATH un `timeout` con esa misma semántica. Su papel es
+  # de trinquete: si alguien vuelve a preferir un `timeout` del sistema sin
+  # escalada, esto se pone rojo EN MACOS, no tres horas después en CI.
+  _r3_con_anillo_automatico
+  mkdir -p bin
+  printf '#!/usr/bin/env bash\ntrap "" TERM\nsleep 10\n' > bin/gh; chmod +x bin/gh
+  cat > bin/timeout <<'FAKE'
+#!/usr/bin/env bash
+# Imita a GNU SIN -k en LO QUE ESTE TEST MIDE: grupo propio, TERM al vencer
+# el plazo, y despues a esperar al hijo — que es la parte cuya ausencia de
+# escalada a KILL se esta comprobando. NO lo imita en el codigo de salida:
+# GNU sale 124 al vencer el plazo y este stub propaga el del hijo. Es inocuo
+# aqui porque el llamador solo captura stdout y descarta el rc, pero se dice
+# en vez de escribir "fiel a GNU" a secas: un stub que promete mas de lo que
+# imita da una garantia que no tiene, y esa es la clase de defecto que este
+# mismo test existe para cazar.
+secs="$1"; shift
+set -m
+"$@" &
+p=$!
+set +m
+( sleep "$secs"; kill -TERM -- "-$p" 2>/dev/null || kill -TERM "$p" 2>/dev/null ) &
+w=$!
+wait "$p"; rc=$?
+kill "$w" 2>/dev/null
+exit "$rc"
+FAKE
+  chmod +x bin/timeout
+  local t0 t1 rc
+  t0=$(date +%s)
+  RING3_CHECK_RUNS=1 RING3_RUNS_TIMEOUT=1 PATH="$(pwd)/bin:/usr/bin:/bin" \
+    bash tools/check-ring3.sh >/dev/null 2>&1; rc=$?
+  t1=$(date +%s)
+  [ $((t1 - t0)) -le 6 ] \
+    || { echo "    un \`timeout\` del sistema sin escalada relajó el límite: $((t1-t0))s con límite 1s"; return 1; }
+  [ "$rc" = "0" ] || { echo "    tras cortar con timeout en el PATH el anillo quedó acusado (exit $rc)"; return 1; }
+}
+test_un_timeout_del_sistema_no_relaja_el_limite() { _r3_sandbox _case_un_timeout_del_sistema_no_relaja_el_limite; }

@@ -3,7 +3,7 @@
 > **GENERADA — NO editar a mano.** Fuente: `tools/findings/ledger.jsonl`.
 > Regenerar: `bash tools/findings/findings.sh render`.
 
-Abiertos: **40** · Cerrados: 22 · Total: 62
+Abiertos: **42** · Cerrados: 22 · Total: 64
 
 ## Abiertos
 
@@ -12,11 +12,13 @@ Abiertos: **40** · Cerrados: 22 · Total: 62
 | `f-29c26642` | high | owner-decision | `docs/process/reviews/2026-08-28-design-review-prd-0001.md:180-194` | El design-reviewer SI cazo la omision de Coordinator/DI (6a pasada, H-7) y el hallazgo se evaporo |
 | `f-2ffc6d32` | high | owner-decision | `.agents/skills/**` | Las skills que describen un SPM no tienen gate de fidelidad: nadie valida que digan VERDE cuando el paquete dice VERDE |
 | `f-7c08518b` | high | owner-decision | `tools/tests/test_agent_runner.sh` | La suite del harness tiene tests flaky de senales que bloquean el push al azar |
+| `f-804ebee0` | high | owner-decision | `tools/check-ring3.sh:169 (rama timeout) + tools/tests/test_ring3.sh:324` | check-ring3: el limite de tiempo NO escala a KILL en Linux, y por eso CI lleva rojo desde el upgrade |
 | `f-8720114e` | high | owner-decision | `spm-pro/AppFoundation/README.md:144-157` | El README de AppFoundation ensena el patron que rompe la identidad de los ViewModels |
 | `f-a3b6dafc` | high | owner-decision | `.agents/skills/architecture/**` | La skill de arquitectura ensena a NO usar los SPM propios: es el template sin rellenar |
 | `f-e008f6f` | high | owner-decision | `tools/ (propuesta: check-platform-adoption.sh + platform-adoption.conf)` | No hay ningun detector de OMISION: nada comprueba que el codigo use los mecanismos que AGENTS.md 3 prescribe |
 | `f-ea2aea2f` | high | owner-decision | `.claude/agents/` | Falta el revisor final con contexto COMPLETO: tarea, PRD, skill, codigo y tests, como un senior ante un PR |
 | `f-2db8ecf0` | medium | owner-decision | `docs/process/current_execution_map.md:56 / tools/` | Nada contrasta un diseno prescrito en docs contra layers.conf: se corrigio el caso (f-3480a974) y no la clase |
+| `f-3b30fcf4` | medium | owner-decision | `tools/harness-report.sh:40 + tools/secret-baseline.sh:66 (clase; propuesta: detector de command -v que ELIGE implementacion)` | Nada vigila las bifurcaciones por entorno del harness, y hay al menos dos vivas con el mismo defecto que tumbo el Anillo 3 |
 | `f-3d60d1f6` | medium | owner-decision | `Sources/Features/Movies/PopularMoviesView.swift:17` | El titulo de la pantalla es un literal en el codigo: no hay String Catalog en el repo |
 | `f-3eb3a818` | medium | owner-decision | `tools/upgrade.sh` | El canal de sync entra en bucle si la resolucion de un conflicto coincide con HEAD |
 | `f-52ef5f6d` | medium | auto-fix | `Sources/Data/Movies/TMDBPopularMoviesRepository.swift:35` | Decision pendiente: CancellationError prescrito vs .unknown implementado |

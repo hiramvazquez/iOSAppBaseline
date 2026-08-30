@@ -1,6 +1,5 @@
 import SwiftUI
 import AppFoundation
-import CoreNetworking
 import os
 
 @main
@@ -8,6 +7,10 @@ struct BaselineApp: App {
     /// Composition root: aquí, y solo aquí, se conocen las implementaciones
     /// concretas — vía los `DependencyModule` que el bootstrap registra. Todo
     /// lo de abajo habla de puertos.
+    ///
+    /// El coordinator vive aquí — es el dueño del ciclo de vida de la
+    /// navegación (PRD 0002, fase 2). Las vistas no navegan: piden al router.
+    private let coordinator = Coordinator<MoviesRoute>(root: .listado)
     @State private var store: MoviesScreenStore
 
     init() {
@@ -15,12 +18,26 @@ struct BaselineApp: App {
         // tests le pasan un contenedor propio y prueban EL MISMO grafo.
         let repositorio = BaselineApp.bootstrap(container: .shared)
 
+        // El coordinator se registra como Router ANTES de que SwiftUI
+        // construya ninguna vista — es el idioma del paquete: cuando un
+        // ViewModel necesite navegar (el slice de detalle), lo resuelve del
+        // contenedor como `any Router<MoviesRoute>`, sin conocer la clase.
+        let coordinator = self.coordinator
+        Container.shared.register(
+            coordinator as any Router<MoviesRoute>,
+            lifecycle: .singleton,
+            as: (any Router<MoviesRoute>).self
+        )
+
         #if DEBUG
         // Aviso ADICIONAL, no la protección: corre DESPUÉS del bootstrap, así
         // que el fallback ya habría ocurrido — quien impide que un cableado
         // roto llegue a release es `BootstrapTests`, y quien lo señala en el
         // momento es el `onMisconfiguration` del propio bootstrap.
-        Container.shared.validateRegistrations([(any PopularMoviesRepository).self])
+        Container.shared.validateRegistrations([
+            (any PopularMoviesRepository).self,
+            (any Router<MoviesRoute>).self,
+        ])
         #endif
 
         _store = State(initialValue: MoviesScreenStore {
@@ -30,9 +47,7 @@ struct BaselineApp: App {
 
     var body: some Scene {
         WindowGroup {
-            NavigationStack {
-                PopularMoviesView(viewModel: store.popular())
-            }
+            AppCoordinatorView(coordinator: coordinator, store: store)
         }
     }
 

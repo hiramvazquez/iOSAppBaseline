@@ -144,18 +144,18 @@ Medible, y verificable por comando:
 ## 5. Estructura de archivos a crear / tocar
 
 ```
-Sources/Features/Movies/MoviesRoute.swift              ← [SLICE-FUTURO] fase 2: enum de rutas (Hashable)
+Sources/Features/Movies/MoviesRoute.swift              ← ✅ fase 2 (entregado): enum de rutas, un caso
 Sources/App/Movies/MoviesModule.swift                  ← ✅ fase 1 (entregado): DependencyModule con el guard de credencial
 Sources/Features/Movies/PopularMoviesViewModel.swift   ← TOCAR: enum Intent + send(_:). SIN any Router (ver 5b)
 Sources/Features/Movies/PopularMoviesView.swift        ← TOCAR: deja de poseer identidad (f-54d7ee41)
 Sources/App/BaselineApp.swift                          ← TOCAR: bootstrap(container:) + Coordinator;
                                                           aquí nace CableadoRotoRepository, junto a
                                                           SinCredencialRepository que ya vive aquí
-Sources/App/AppCoordinatorView.swift                   ← [SLICE-FUTURO] fase 2: Coordinator + CoordinatorView
-Sources/App/Movies/MoviesRouteBuilder.swift             ← [SLICE-FUTURO] fase 2: la costura que hace G4 escribible
+Sources/App/AppCoordinatorView.swift                   ← ✅ fase 2 (entregado): closure de UNA línea al builder
+Sources/App/Movies/MoviesRouteBuilder.swift             ← ✅ fase 2 (entregado): la costura de G4
 Sources/App/Movies/MoviesScreenStore.swift             ← TOCAR: pasa a estar justificado de verdad
 Tests/UnitTests/Movies/MoviesModuleTests.swift         ← ✅ fase 1 (entregado): G3, en contenedor propio
-Tests/UnitTests/Movies/MoviesRouteBuilderTests.swift    ← [SLICE-FUTURO] fase 2: G4, el closure usa el store
+Tests/UnitTests/Movies/MoviesRouteBuilderTests.swift    ← ✅ fase 2 (entregado): G4, mutante de la Trampa C muerto
 Tests/UnitTests/Movies/PopularMoviesViewModelTests.swift ← TOCADO por la fase 3: sus llamadas a send(_:) (el conteo exacto lo da grep, no esta prosa — la cifra que había aquí ya estaba mal)
 Tests/UnitTests/Movies/MoviesScreenStoreTests.swift    ← TOCAR: handle(_:) + dos PopularMoviesViewModel(repository:)
 Tests/UnitTests/SmokeTests.swift                       ← TOCAR/REVISAR: lee Container.shared y asevera tryResolve == nil
@@ -408,9 +408,24 @@ del sistema queda oculta en todas las rutas (§9, OQ-5). Las referencias son `ar
       que ningún test lo vea.
 - [ ] El recíproco asevera **la señal de `onMisconfiguration`**, no solo el tipo: borrar el log
       o el assert del default de producción tiene que matar un test.
-- [ ] **Checklist manual de UI en simulador** (OQ-5) ejecutado al cerrar la fase 2 y sus capturas
-      anotadas aquí: título, botón atrás, safe areas, pantalla de error, ES/EN. Es evidencia
-      declarada, no automática.
+- [x] **Checklist manual de UI en simulador** (OQ-5) — ejecutado el 2026-08-29 en iPhone 17
+      (sim), app corriendo BAJO la arquitectura nueva (Container + CoordinatorView + builder):
+      · **Título** «Películas populares» visible — lo pinta la barra de `ScreenContainer`, la del
+        sistema queda oculta bajo `CoordinatorView` como la skill documenta. ✓
+      · **Safe areas** respetadas (título bajo el notch, lista dentro de bordes). ✓
+      · **Contenido real**: listado de TMDB cargando por el grafo completo de DI (captura con
+        Spider-Man: Brand New Day, The Odyssey, …; notas con formato regional). ✓
+      · **Pantalla de error** verificada (captura previa, copy es «No se pudo cargar / Ahora
+        mismo no podemos mostrar las películas»). ✓
+      · **Botón atrás**: N/A — ruta única; llega con el slice de detalle.
+      · **ES/EN**: observado el MIXTO conocido — botón «Retry» (string EN del paquete, el sim
+        corre en inglés) junto a copy nuestro en español (literales sin catálogo). Es exactamente
+        el finding de i18n de OQ-6, ya en el ledger; no es regresión de esta fase.
+      · Hallazgo operativo de paso: el Info.plist compilado NO se regenera cuando cambia un
+        `#include?` de xcconfig — todos los builds del día arrastraban un plist viejo con el
+        token vacío y la app caía al camino sin-credencial. `touch Config/Info.plist` lo fuerza.
+        Registrado en el ledger; la señal del bootstrap demostró su valor descartando en un
+        minuto que fuera cableado roto.
 - [ ] `bash tools/check-layers.sh` y `bash tools/check-drift.sh` sin errores nuevos.
 - [ ] **Cada fase quita el `[SLICE-FUTURO]`** de las líneas de §5 que entrega, **en su mismo
       commit**. Y al cerrar el PRD: `bash tools/check-prd-tree.sh` reporta **`futuros=0`** para

@@ -7,11 +7,12 @@ import AppFoundation
 /// —cargando, vacío, error, contenido— las pinta `ScreenContainer`, así que
 /// aquí no hay ni un `if phase == …` (prohibido por `architecture/SKILL.md`).
 struct PopularMoviesView: View {
-    @State private var viewModel: PopularMoviesViewModel
-
-    init(viewModel: PopularMoviesViewModel) {
-        _viewModel = State(wrappedValue: viewModel)
-    }
+    /// `let`, no `@State` (f-54d7ee41): el dueño de la identidad del ViewModel
+    /// es `MoviesScreenStore`, y un `@State` aquí duplicaba esa propiedad — dos
+    /// dueños de lo mismo que podían divergir. Con `@Observable`, un `let`
+    /// re-renderiza igual cuando el ViewModel cambia; lo único que se pierde es
+    /// una retención que ya no toca a esta vista hacer.
+    let viewModel: PopularMoviesViewModel
 
     var body: some View {
         ScreenContainer(viewModel: viewModel, title: "Películas populares") {

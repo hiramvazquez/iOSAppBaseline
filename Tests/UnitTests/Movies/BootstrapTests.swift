@@ -14,12 +14,25 @@ import AppFoundation
 /// `SinCredencialRepository` — endurecer la aserción al tipo real rompería CI
 /// siempre. No lo «arregles». (PRD 0002 §3.)
 ///
-/// La invocación de `Coordinator<MoviesRoute>` + `MoviesRouteBuilder` que la
-/// fila primaria también exige llega con la **fase 2**, que es la que crea
-/// esos tipos. Este archivo se amplía entonces.
 @MainActor
 @Suite("BaselineApp.bootstrap — el grafo real")
 struct BootstrapTests {
+
+    /// La mitad de fase 2 del criterio primario: los tipos de navegación están
+    /// enlazados Y usados — un comentario no puede satisfacer una compilación,
+    /// y este test no compila si `Coordinator<MoviesRoute>` o el builder no
+    /// existen o cambian de forma.
+    @Test("el cableado de navegación compila y el builder produce la vista de la ruta raíz")
+    func elCableadoDeNavegacionEstaVivo() {
+        let coordinator = Coordinator<MoviesRoute>(root: .listado)
+        let store = MoviesScreenStore {
+            PopularMoviesViewModel(repository: CableadoRotoRepository())
+        }
+
+        _ = MoviesRouteBuilder.view(for: .listado, store: store)
+
+        #expect(coordinator.isAtRoot, "recién construido, el coordinator está en la raíz")
+    }
 
     @Test("con los módulos registrados, lo resuelto NO es el fallback de cableado roto")
     func conModulosNoCaeAlFallback() {

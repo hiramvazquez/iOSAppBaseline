@@ -1,5 +1,10 @@
 # Handoff — tras el PRD 0002 (adopción de los SPM) y el primer ensayo del revisor E2E
 
+> 🗄️ **SUPERADO el 2026-08-31 por `2026-08-31-anillo3-y-los-dos-prd.md`.** Se conserva como
+> lectura de fondo, pero **no es el punto de entrada**: su paso 1 (el push) ya está hecho, el
+> push dejó CI en rojo dos días por una causa que este documento no podía conocer, y su
+> recuento de findings del slice de detalle cuenta de más. Empieza por el nuevo.
+
 > Prompt de arranque para una sesión nueva sobre `iOSAppBaseline`.
 > Estado verificado el 2026-08-30 sobre `5dcb575`, árbol limpio.
 > El handoff anterior (`2026-08-28-slice0-a-refactors.md`) sigue siendo buena lectura de fondo;

@@ -172,3 +172,5 @@ Catalog, mínimo iOS 17. Lo que los paquetes no cubran se decide **una vez** y s
 - Lecciones: `docs/process/lessons_learned.md` (toda entrada exige `Detector:`)
 - Findings: `docs/process/findings-ledger.md` (arranca vacío: los del template son deuda suya)
 - Salud del harness: `bash scripts/agent-hooks/session-start.sh --report`
+- **Punto de entrada de una sesión nueva:** `docs/process/handoffs/2026-08-31-anillo3-y-los-dos-prd.md`
+  (sustituye al del 2026-08-30, cuyo paso 1 ya está hecho)

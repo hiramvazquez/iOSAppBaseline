@@ -3,7 +3,7 @@
 > **GENERADA — NO editar a mano.** Fuente: `tools/findings/ledger.jsonl`.
 > Regenerar: `bash tools/findings/findings.sh render`.
 
-Abiertos: **42** · Cerrados: 24 · Total: 66
+Abiertos: **41** · Cerrados: 25 · Total: 66
 
 ## Abiertos
 
@@ -13,7 +13,6 @@ Abiertos: **42** · Cerrados: 24 · Total: 66
 | `f-2ffc6d32` | high | owner-decision | `.agents/skills/**` | Las skills que describen un SPM no tienen gate de fidelidad: nadie valida que digan VERDE cuando el paquete dice VERDE |
 | `f-7c08518b` | high | owner-decision | `tools/tests/test_agent_runner.sh` | La suite del harness tiene tests flaky de senales que bloquean el push al azar |
 | `f-8720114e` | high | owner-decision | `spm-pro/AppFoundation/README.md:144-157` | El README de AppFoundation ensena el patron que rompe la identidad de los ViewModels |
-| `f-a3b6dafc` | high | owner-decision | `.agents/skills/architecture/**` | La skill de arquitectura ensena a NO usar los SPM propios: es el template sin rellenar |
 | `f-e008f6f` | high | owner-decision | `tools/ (propuesta: check-platform-adoption.sh + platform-adoption.conf)` | No hay ningun detector de OMISION: nada comprueba que el codigo use los mecanismos que AGENTS.md 3 prescribe |
 | `f-ea2aea2f` | high | owner-decision | `.claude/agents/` | Falta el revisor final con contexto COMPLETO: tarea, PRD, skill, codigo y tests, como un senior ante un PR |
 | `f-2db8ecf0` | medium | owner-decision | `docs/process/current_execution_map.md:56 / tools/` | Nada contrasta un diseno prescrito en docs contra layers.conf: se corrigio el caso (f-3480a974) y no la clase |
@@ -75,6 +74,7 @@ Abiertos: **42** · Cerrados: 24 · Total: 66
 | `f-known-flags-drift` | fixed | Test test_known_flags_cubre_el_usage: extrae los flags del USAGE y exige que KNOWN_FLAGS los cubra.  |
 | `f-test-id-decorativo` | fixed | Anadido test_close_id_inexistente_explica, que exige el mensaje en stderr y prohibe el traceback. Ve |
 | `f-f2a4ca6e` | fixed | CERRADO por el PRD 0002 completo (fases 3+1+2: commits 65b5fdb, 483f4eb, 3e333ba, 2026-08-29). El mo |
+| `f-a3b6dafc` | fixed | CERRADO con evidencia mecanica, 2026-08-31. El trabajo se hizo el 2026-08-29 -la reescritura de las  |
 | `f-1aa86bc8` | fixed | Arreglado en 43d9199. El guard dejo de ser lista negra: ahora exige que lo configurado SEA el host ( |
 | `f-a168fe6d` | fixed | Arreglado en 43d9199. El test se reescribio para afirmar config == nil en vez de baseURL.scheme != h |
 | `f-7c57fa35` | accepted | Decision del owner (2026-08-29, literal): "el token es de dev, no importa que se haya visto, no es u |

@@ -3,7 +3,7 @@
 > **GENERADA — NO editar a mano.** Fuente: `tools/findings/ledger.jsonl`.
 > Regenerar: `bash tools/findings/findings.sh render`.
 
-Abiertos: **41** · Cerrados: 25 · Total: 66
+Abiertos: **38** · Cerrados: 28 · Total: 66
 
 ## Abiertos
 
@@ -20,14 +20,12 @@ Abiertos: **41** · Cerrados: 25 · Total: 66
 | `f-3d60d1f6` | medium | owner-decision | `Sources/Features/Movies/PopularMoviesView.swift:17` | El titulo de la pantalla es un literal en el codigo: no hay String Catalog en el repo |
 | `f-3eb3a818` | medium | owner-decision | `tools/upgrade.sh` | El canal de sync entra en bucle si la resolucion de un conflicto coincide con HEAD |
 | `f-52ef5f6d` | medium | auto-fix | `Sources/Data/Movies/TMDBPopularMoviesRepository.swift:35` | Decision pendiente: CancellationError prescrito vs .unknown implementado |
-| `f-694c2009` | medium | auto-fix | `docs/process/current_execution_map.md` | current_execution_map.md afirma que gates.yml nunca ha corrido, y si ha corrido |
 | `f-71c669cc` | medium | owner-decision | `scripts/agent-hooks/reviewer-gate.sh` | El veredicto del design-reviewer no tiene consecuencia mecanica: seis pasadas RED y el commit paso igual |
 | `f-7b10426e` | medium | owner-decision | `Tests/UnitTests/Movies` | T-S-1 (sentinela de credencial) sin escribir: decidir escribirlo o aceptar la cobertura actual |
 | `f-85c818b4` | medium | owner-decision | `AGENTS.md:5 / .agents/skills/process/references/tdd-workflow.md:18` | El paso rojo del TDD no lo observa nada, y la trayectoria muestra que no ocurrio en el slice 0 |
 | `f-8ab6c2ad` | medium | owner-decision | `spm-pro/AppFoundation/Sources/AppFoundation/Navigation/Views/CoordinatorView.swift` | CoordinatorView no tiene ni un solo test, y es donde vive la trampa mas cara del paquete |
 | `f-8e30ad43` | medium | auto-fix | `scripts/agent-hooks/session-end.sh:51-58` | La judge-queue encolo un SID sin trayectoria y con commits=0 la sesion que escribio el slice 0 |
 | `f-a655520c` | medium | auto-fix | `docs/process/prds/0001-vertical-de-referencia-peliculas.md:367 (SS6.2) + :155 (SS5)` | El PRD 0001 se contradice consigo mismo sobre donde van overview/releaseDate, y su arbol de archivos coloca MoviesModule donde layers.conf lo rechaza |
-| `f-b6c162d8` | medium | owner-decision | `docs/process/prds/0001-vertical-de-referencia-peliculas.md:171-175 (propuesta: tools/check-prd-tree.sh)` | El arbol de archivos del PRD 5 se comparo con lo entregado a ojo, y la pasada manual perdio los tres archivos que faltaban |
 | `f-cc4f2b3e` | medium | auto-fix | `tools/check-execution-map.sh:279` | check-execution-map: cualquier backtick vecino excusa una afirmacion de estado falsa |
 | `f-db694460` | medium | owner-decision | `spm-pro/AppFoundation/Sources/AppFoundation/DependencyInjection/Container.swift` | Container: registrar transient o scoped sobre un singleton ya materializado es silenciosamente inefectivo |
 | `f-e6743298` | medium | owner-decision | `spm-pro/CoreNetworking/Sources/CoreNetworking/RequestInterceptor.swift:130` | Privacidad invertida en los logs de red: la URL va private y el mensaje del servidor va public |
@@ -46,7 +44,6 @@ Abiertos: **41** · Cerrados: 25 · Total: 66
 | `f-975e3cb1` | low | auto-fix | `tools/semgrep-scan.sh:94` | semgrep-scan.sh --all revienta con TARGETS vacio bajo bash 3.2 (unbound variable) |
 | `f-996710c3` | low | auto-fix | `Tests/UnitTests/Movies/MoviesRouteBuilderTests.swift:45` | RepoVacio duplica el fake canonico y no esta en el catalogo de exenciones de la conformidad |
 | `f-a452b1de` | low | auto-fix | `Sources/App/AppCoordinatorView.swift:19` | Residuo declarado de G4: nada verifica que AppCoordinatorView le pase el builder a CoordinatorView |
-| `f-d4b58c90` | low | auto-fix | `docs/process/current_execution_map.md` | current_execution_map.md punto 1 describe commitear el slice 0 como pendiente, ya commiteado |
 | `f-de18ddb` | low | auto-fix | `tools/harness-report.sh:59` | El contador de FILL de harness-report cuenta los FILL-HECHO como pendientes |
 | `f-e420ff1e` | low | owner-decision | `CLAUDE.md (seccion Maquinaria exclusiva de Claude Code)` | CLAUDE.md anuncia solo /goal y ya hay 5 comandos: los otros 4 son indescubribles |
 | `f-e4a8a982` | low | auto-fix | `tools/check-layers-coverage.sh` | check-layers-coverage: la exencion del bloque universal es posicional, no semantica |
@@ -73,7 +70,10 @@ Abiertos: **41** · Cerrados: 25 · Total: 66
 | `f-flag-placeholder` | fixed | Aplicado require_flag_values a resolution/reason: el mecanismo YA existia en el archivo y solo se us |
 | `f-known-flags-drift` | fixed | Test test_known_flags_cubre_el_usage: extrae los flags del USAGE y exige que KNOWN_FLAGS los cubra.  |
 | `f-test-id-decorativo` | fixed | Anadido test_close_id_inexistente_explica, que exige el mensaje en stderr y prohibe el traceback. Ve |
+| `f-d4b58c90` | fixed | CERRADO con evidencia, 2026-08-31. El arreglo que este finding pedia era 'marcar el punto 1 como HEC |
 | `f-f2a4ca6e` | fixed | CERRADO por el PRD 0002 completo (fases 3+1+2: commits 65b5fdb, 483f4eb, 3e333ba, 2026-08-29). El mo |
+| `f-694c2009` | fixed | CERRADO con evidencia, 2026-08-31. Este finding pedia dos cosas y las dos estan. (1) 'Sustituir la f |
+| `f-b6c162d8` | fixed | CERRADO 2026-08-31, y con el alcance exacto porque la propuesta NO se entrego entera. EL CASO ESTA M |
 | `f-a3b6dafc` | fixed | CERRADO con evidencia mecanica, 2026-08-31. El trabajo se hizo el 2026-08-29 -la reescritura de las  |
 | `f-1aa86bc8` | fixed | Arreglado en 43d9199. El guard dejo de ser lista negra: ahora exige que lo configurado SEA el host ( |
 | `f-a168fe6d` | fixed | Arreglado en 43d9199. El test se reescribio para afirmar config == nil en vez de baseURL.scheme != h |

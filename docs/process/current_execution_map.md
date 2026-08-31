@@ -79,6 +79,19 @@
    contradice consigo mismo** sobre dónde van `overview`/`releaseDate`, con su árbol colocando
    además `MoviesModule` donde `layers.conf` lo rechaza (`f-a655520c`). Los findings atados al
    slice son **cuatro** más un residuo declarado, no cinco: el handoff contaba de más.
+   **OQ-1 resuelta por el owner (2026-08-31): constructor, y el registro del `Router` se borra**
+   — `f-f88eb0fd` se cerrará por eliminación, no por test, con el inventario de tres sitios que
+   el PRD §7b deja verificado con `grep`.
+
+0d. **`AGENTS.md` §3 quedó en minoría de uno, y solo tú puedes arreglarlo (`f-da257e0c`).** Su
+   línea 68 prescribe `@Inject` en los consumidores. Dicen lo contrario: `Inject.swift` del
+   paquete («Prefer constructor injection»), `architecture/SKILL.md`:88-93 de este repo
+   —**lectura obligatoria** por `skill-matrix.conf` para tocar un ViewModel, y dice «inyección
+   por constructor por defecto»—, el código, y ahora tu propia decisión de OQ-1. Tres fuentes y
+   una decisión contra una línea, y esa línea **gana por precedencia declarada**: un agente que
+   lee las dos lecturas obligatorias recibe instrucciones contradictorias y la regla le manda
+   obedecer a la minoritaria. Es una línea de cambio; cierra `f-da257e0c` y desbloquea la fila
+   del conf en OQ-1 del PRD 0003.
 
 1. **Slice 0 commiteado y publicado.** `origin/main` incluye la vertical, los tres refactors y
    la reescritura de las skills; CI (`Gates`) pasa en verde sobre ese árbol —el estado real de

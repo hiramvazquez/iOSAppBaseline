@@ -1,6 +1,6 @@
 # PRD — Slice de detalle de película
 
-> **Tipo:** Forward · **Status:** 📝 Draft — pendiente de tus respuestas a §13 y del `design-reviewer`
+> **Tipo:** Forward · **Status:** 📝 Draft — **OQ-1 resuelta** (owner, 2026-08-31). Pendientes OQ-2/3/4 y el `design-reviewer`
 > **Autor:** sesión de agente (Claude) · **Fecha:** 2026-08-31
 > **Tracking:** `f-f88eb0fd` · `f-a452b1de` · `f-5856bd41` · `f-996710c3` (los cuatro con condición de cierre atada a este slice) · el residuo del Router declarado en la resolución de `f-f2a4ca6e` · `f-3d60d1f6` y `f-8ab6c2ad`, que este slice **ejercita pero no cierra**
 > **Design-review:** pendiente
@@ -218,6 +218,28 @@ duración, y volver al listado donde lo dejé.
   NO bloquea este slice**: su propio detalle dice que bloquea paginación y el decorador de caché,
   y este slice no es ninguno de los dos.
 
+## 7b. El borrado del registro del `Router` (OQ-1, rama a)
+
+Inventario **verificado con `grep -rn "Router" Sources/ Tests/`**, no de memoria. Son tres sitios,
+todos en `Sources/App/BaselineApp.swift`, y **ningún test referencia el `Router`** — que es
+precisamente lo que `f-f88eb0fd` denunciaba:
+
+| Línea | Qué es | Acción |
+|---|---|---|
+| 21-24 | el comentario que **promete** que «cuando un ViewModel necesite navegar … lo resuelve del contenedor» | **reescribir**: pasa a decir que el `Router` se inyecta por constructor desde el composition root, y por qué |
+| 26-30 | `Container.shared.register(coordinator as any Router<MoviesRoute>, …)` | **borrar** |
+| 39 | `(any Router<MoviesRoute>).self` dentro de `validateRegistrations([…])` | **borrar esa entrada**; la lista queda con los dos puertos de repositorio |
+
+> El comentario de 21-24 se **reescribe y no se borra sin más**: es la promesa que hizo que este
+> registro pareciera arquitectura durante dos PRD, y un archivo que enseña un patrón debe decir
+> **cuál** sigue y por qué, no quedarse mudo. Esta es la misma clase de barrido que ya falló una
+> vez en esta sesión —corregir donde te señalan y no donde la afirmación también vive—, así que
+> el DoD lo exige con un `grep` de cierre.
+
+`MoviesRoute.swift`:12 menciona «el `Router` en el ViewModel» al explicar por qué el PRD 0002 NO
+lo metió entonces. Es una referencia histórica correcta, pero **queda desactualizada en cuanto el
+Router entra de verdad**: revisarla en la fase 3.
+
 ## 8. Anti-features (qué NO entra)
 
 1. **Pósters ni imágenes.** `posterPath` sigue sin usarse. Es su propio slice.
@@ -276,27 +298,21 @@ que toque credencial, almacenamiento o authz).
 | Riesgo | Mitigación |
 |---|---|
 | **La memoización por id crece sin límite** (una instancia por película visitada) | OQ-3. Propuesta: diccionario por `MovieID`, con el crecimiento **declarado y acotado** (un ViewModel pequeño por película abierta en la sesión). La evicción va a §16, no aquí |
-| **El `Router` inyectado por constructor deja el registro del contenedor sin consumidor** — y entonces `f-f88eb0fd` se cierra borrando código, no testeándolo | OQ-1. Es una decisión tuya: el registro es «el idioma del owner» y no lo retira un agente |
+| **Borrar el registro del `Router` deja una punta sin quitar** — el comentario que lo promete, o la entrada de `validateRegistrations` | Ya no es riesgo abierto: §7b inventaria los **tres** sitios exactos, verificados con `grep`, y ningún test lo referencia |
 | Golden 2 pasa y la posición de scroll igualmente salta | Declarado en §3: **no es verificable aquí**. Checklist manual en §15 |
 | La Trampa C reaparece por la puerta del detalle | Golden 4, con mutación obligatoria |
 | El slice crece hacia pósters o i18n | §8, anti-features 1 y 3 |
 
 ## 13. Open Questions
 
-- [ ] **OQ-1 (BLOQUEA la fase 3) — ¿cómo recibe el `Router` el ViewModel?** Es la misma pregunta
-      de fondo que `f-da257e0c`, aplicada al código en vez de al detector.
-      **(a) Inyección por constructor** —`PopularMoviesViewModel(repository:router:)`, con la
-      factoría del store cerrando sobre el coordinator—: es el idioma del paquete
-      (`Inject.swift`: *«Prefer constructor injection»*), es testeable sin tocar ningún contenedor
-      global, y es lo que el resto del módulo ya hace. **Consecuencia que hay que mirar de
-      frente:** el registro `coordinator as any Router<MoviesRoute>` de `BaselineApp.init` se
-      queda **sin ningún consumidor**, y entonces lo honesto es **borrarlo**, no escribirle un
-      test — cerrar `f-f88eb0fd` por eliminación. **(b) Resolución del contenedor** (`@Inject` o
-      `Container.resolve`): es lo que `AGENTS.md` §3 prescribe y lo que el comentario de
-      `BaselineApp.swift` promete literalmente, y mantiene vivo el registro que validaste. Cuesta
-      que el ViewModel dependa del contenedor para existir.
-      **No lo decido yo:** (a) contradice un comentario que tú validaste, y (b) contradice al
-      autor del paquete.
+- [x] **OQ-1 — RESUELTA por el owner (2026-08-31), literal: «constructor, y borra el registro
+      del Router».** Rama **(a)**: `PopularMoviesViewModel(repository:router:)`, con la factoría
+      del store cerrando sobre el coordinator, y el registro del contenedor **eliminado por no
+      tener consumidor**. Queda alineado con `architecture/SKILL.md`:88-93 —lectura obligatoria
+      de este repo, que ya decía «inyección por constructor por defecto»— y con `Inject.swift`
+      del paquete. Lo que la decisión **no** toca: el texto de `AGENTS.md` §3, que sigue
+      prescribiendo `@Inject` en los consumidores y ahora contradice una desviación **decidida**;
+      eso es meta-doc y sigue en `f-da257e0c`.
 - [ ] **OQ-2 (bloquea la fase 1) — ¿un puerto nuevo o un método más en el existente?**
       Propuesta: **puerto nuevo**. `PopularMoviesRepository` es una *capability* declarada
       («pide exactamente una cosa») y añadirle `movieDetail` rompería esa declaración y obligaría
@@ -321,6 +337,9 @@ que toque credencial, almacenamiento o authz).
 - [ ] `reviewer` GREEN/AMBER atendido en **cada** fase
 - [ ] **Revisor E2E al cierre del PRD**, con contexto de toda la cadena (encargo → PRD → skills → código → tests → ledger), y con honestidad simétrica: que declare qué de lo suyo ya lo habían cazado los gates baratos
 - [ ] **Checklist manual en simulador con datos reales**, porque hay dos cosas que ningún test de este repo alcanza: (1) la **posición de scroll** al volver del detalle (§3), y (2) que el detalle no **parpadee** al cerrarse (`f-8ab6c2ad`, punto 4)
+- [ ] **El borrado del `Router` no dejó puntas**: `grep -rn "Router" Sources/ Tests/` devuelve solo
+      los usos nuevos (el parámetro del constructor y el tipo en el ViewModel), y **ninguna** mención
+      a `Container`, `register` o `validateRegistrations` junto al `Router` (§7b)
 - [ ] Los cuatro findings cerrados **con la evidencia dentro de la resolución**, no con «hecho»
 - [ ] `f-3d60d1f6` actualizado con los literales nuevos · `f-8ab6c2ad` actualizado con lo que este slice ejercitó
 - [ ] Las dos correcciones de §6.3 aplicadas al PRD 0001 en la fase 1

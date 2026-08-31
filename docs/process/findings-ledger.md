@@ -3,23 +3,31 @@
 > **GENERADA — NO editar a mano.** Fuente: `tools/findings/ledger.jsonl`.
 > Regenerar: `bash tools/findings/findings.sh render`.
 
-Abiertos: **38** · Cerrados: 28 · Total: 66
+Abiertos: **45** · Cerrados: 29 · Total: 74
 
 ## Abiertos
 
 | id | sev | tier | área | título |
 |---|---|---|---|---|
+| `f-26957ab5` | high | auto-fix | `scripts/process-judge-context.sh:44-47` | process-judge-context.sh ignora el rango de la cola y muestra siempre 'git show HEAD': el juez ve un diff ajeno y sale 0 |
 | `f-29c26642` | high | owner-decision | `docs/process/reviews/2026-08-28-design-review-prd-0001.md:180-194` | El design-reviewer SI cazo la omision de Coordinator/DI (6a pasada, H-7) y el hallazgo se evaporo |
 | `f-2ffc6d32` | high | owner-decision | `.agents/skills/**` | Las skills que describen un SPM no tienen gate de fidelidad: nadie valida que digan VERDE cuando el paquete dice VERDE |
 | `f-7c08518b` | high | owner-decision | `tools/tests/test_agent_runner.sh` | La suite del harness tiene tests flaky de senales que bloquean el push al azar |
 | `f-8720114e` | high | owner-decision | `spm-pro/AppFoundation/README.md:144-157` | El README de AppFoundation ensena el patron que rompe la identidad de los ViewModels |
+| `f-9c93279f` | high | auto-fix | `scripts/agent-hooks/session-end.sh:50-58 + .agents/state/session-head.txt` | La judge-queue atribuyo el MISMO rango a dos sesiones, y ninguna de las dos lo escribio entero |
 | `f-e008f6f` | high | owner-decision | `tools/ (propuesta: check-platform-adoption.sh + platform-adoption.conf)` | No hay ningun detector de OMISION: nada comprueba que el codigo use los mecanismos que AGENTS.md 3 prescribe |
+| `f-e1efe6da` | high | owner-decision | `scripts/agent-hooks/ (.agents/state/markers/reviewer_run.txt) + AGENTS.md:13` | Carrera del reviewer-gate: dos reviewer en paralelo sobre el mismo diff, marker global, y el commit entro con el GREEN corto |
+| `f-e2cb1624` | high | owner-decision | `tools/check-review-marker.sh:48 (NON_PRODUCT) + .github/workflows/gates.yml:96 (AI_REVIEW_REQUIRED=0)` | check-review-marker exime .agents/, tools/, ci/ y AGENTS/CLAUDE.md, y el ai-review de CI esta apagado: las skills que BLOQUEAN al codigo se cambian sin ninguna revision |
 | `f-ea2aea2f` | high | owner-decision | `.claude/agents/` | Falta el revisor final con contexto COMPLETO: tarea, PRD, skill, codigo y tests, como un senior ante un PR |
+| `f-13afde3c` | medium | auto-fix | `scripts/agent-hooks/ (capture de trayectoria)` | La trayectoria registra cd como path en 736 de 2143 Bash: el instrumento del nivel 9 es ciego al 55% del trabajo |
 | `f-2db8ecf0` | medium | owner-decision | `docs/process/current_execution_map.md:56 / tools/` | Nada contrasta un diseno prescrito en docs contra layers.conf: se corrigio el caso (f-3480a974) y no la clase |
+| `f-30019063` | medium | owner-decision | `scripts/agent-hooks/capture-review-verdict.sh:218` | Un solo juicio vacia la cola ENTERA: la cola vacia no es evidencia de que las sesiones se juzgaran |
+| `f-398bed19` | medium | auto-fix | `tools/findings/ledger.jsonl (f-e420ff1e) + CLAUDE.md:20-26` | f-e420ff1e sigue abierto aunque b4266e7 lo arreglo hace dos dias: nada revisa un finding cuya area ya cambio |
 | `f-3b30fcf4` | medium | owner-decision | `tools/harness-report.sh:40 + tools/secret-baseline.sh:66 (clase; propuesta: detector de command -v que ELIGE implementacion)` | Nada vigila las bifurcaciones por entorno del harness, y hay al menos dos vivas con el mismo defecto que tumbo el Anillo 3 |
 | `f-3d60d1f6` | medium | owner-decision | `Sources/Features/Movies/PopularMoviesView.swift:17` | El titulo de la pantalla es un literal en el codigo: no hay String Catalog en el repo |
 | `f-3eb3a818` | medium | owner-decision | `tools/upgrade.sh` | El canal de sync entra en bucle si la resolucion de un conflicto coincide con HEAD |
 | `f-52ef5f6d` | medium | auto-fix | `Sources/Data/Movies/TMDBPopularMoviesRepository.swift:35` | Decision pendiente: CancellationError prescrito vs .unknown implementado |
+| `f-6588c883` | medium | auto-fix | `scripts/agent-hooks/session-end.sh:78-86 (dedup contra process-judge_run.txt)` | Una sesion juzgada una vez queda EXENTA de la cola para siempre: 09707774 trabajo 33h mas sin volver a entrar |
 | `f-71c669cc` | medium | owner-decision | `scripts/agent-hooks/reviewer-gate.sh` | El veredicto del design-reviewer no tiene consecuencia mecanica: seis pasadas RED y el commit paso igual |
 | `f-7b10426e` | medium | owner-decision | `Tests/UnitTests/Movies` | T-S-1 (sentinela de credencial) sin escribir: decidir escribirlo o aceptar la cobertura actual |
 | `f-85c818b4` | medium | owner-decision | `AGENTS.md:5 / .agents/skills/process/references/tdd-workflow.md:18` | El paso rojo del TDD no lo observa nada, y la trayectoria muestra que no ocurrio en el slice 0 |
@@ -29,12 +37,12 @@ Abiertos: **38** · Cerrados: 28 · Total: 66
 | `f-cc4f2b3e` | medium | auto-fix | `tools/check-execution-map.sh:279` | check-execution-map: cualquier backtick vecino excusa una afirmacion de estado falsa |
 | `f-db694460` | medium | owner-decision | `spm-pro/AppFoundation/Sources/AppFoundation/DependencyInjection/Container.swift` | Container: registrar transient o scoped sobre un singleton ya materializado es silenciosamente inefectivo |
 | `f-e6743298` | medium | owner-decision | `spm-pro/CoreNetworking/Sources/CoreNetworking/RequestInterceptor.swift:130` | Privacidad invertida en los logs de red: la URL va private y el mensaje del servidor va public |
+| `f-e95ba951` | medium | auto-fix | `scripts/agent-hooks/track-trajectory.sh (destino = repo del cwd) + scripts/process-judge-context.sh:27-31` | La trayectoria de una sesion se PARTE entre repos segun el cwd, y process-judge-context.sh solo lee la mitad local: el juez vio el 29% de una sesion sin enterarse |
 | `f-ee56ec3` | medium | owner-decision | `tools/check-prd-tree.sh` | check-prd-tree lee la prosa que AVISA de una ruta como si la declarara |
 | `f-f17a5860` | medium | owner-decision | `tools/check-layers-coverage.sh` | Nada vigila que los globs de skill-matrix.conf no enmudezcan |
 | `f-f88eb0fd` | medium | auto-fix | `Sources/App/BaselineApp.swift` | El registro del Router en BaselineApp.init no tiene test propio: la unica pieza del idioma del owner sin red |
 | `f-f957b7f4` | medium | auto-fix | `Config/Debug.xcconfig:7` | El Info.plist compilado no se regenera cuando cambia un include opcional de xcconfig |
 | `f-update-sin-guard` | medium | auto-fix | `tools/findings/findings.sh:242` | update bypasa el guard de terminalidad: resucita un finding cerrado y pisa su resolucion |
-| `f-13afde3c` | low | auto-fix | `scripts/agent-hooks/ (capture de trayectoria)` | La trayectoria registra cd como path en 736 de 2143 Bash: el instrumento del nivel 9 es ciego al 55% del trabajo |
 | `f-2c039d47` | low | owner-decision | `tools/tests/README.md` | tools/tests/README.md nombra el workflow de CI sin detector que lo mantenga cierto |
 | `f-32db9901` | low | owner-decision | `CoreNetworking/Sources/CoreNetworking/SessionDelegates.swift:34` | El aviso de fallo de pinning no esta verificado: invertir su condicion silencia el log |
 | `f-5529624d` | low | owner-decision | `tools/verify.conf` | El umbral real del test-timeout no esta fijado en el repo |
@@ -45,7 +53,6 @@ Abiertos: **38** · Cerrados: 28 · Total: 66
 | `f-996710c3` | low | auto-fix | `Tests/UnitTests/Movies/MoviesRouteBuilderTests.swift:45` | RepoVacio duplica el fake canonico y no esta en el catalogo de exenciones de la conformidad |
 | `f-a452b1de` | low | auto-fix | `Sources/App/AppCoordinatorView.swift:19` | Residuo declarado de G4: nada verifica que AppCoordinatorView le pase el builder a CoordinatorView |
 | `f-de18ddb` | low | auto-fix | `tools/harness-report.sh:59` | El contador de FILL de harness-report cuenta los FILL-HECHO como pendientes |
-| `f-e420ff1e` | low | owner-decision | `CLAUDE.md (seccion Maquinaria exclusiva de Claude Code)` | CLAUDE.md anuncia solo /goal y ya hay 5 comandos: los otros 4 son indescubribles |
 | `f-e4a8a982` | low | auto-fix | `tools/check-layers-coverage.sh` | check-layers-coverage: la exencion del bloque universal es posicional, no semantica |
 
 ## Cerrados
@@ -75,6 +82,7 @@ Abiertos: **38** · Cerrados: 28 · Total: 66
 | `f-694c2009` | fixed | CERRADO con evidencia, 2026-08-31. Este finding pedia dos cosas y las dos estan. (1) 'Sustituir la f |
 | `f-b6c162d8` | fixed | CERRADO 2026-08-31, y con el alcance exacto porque la propuesta NO se entrego entera. EL CASO ESTA M |
 | `f-a3b6dafc` | fixed | CERRADO con evidencia mecanica, 2026-08-31. El trabajo se hizo el 2026-08-29 -la reescritura de las  |
+| `f-e420ff1e` | fixed | CERRADO con evidencia, 2026-08-31. Lo arreglo el commit b4266e7 ('docs(claude): CLAUDE.md lista los  |
 | `f-1aa86bc8` | fixed | Arreglado en 43d9199. El guard dejo de ser lista negra: ahora exige que lo configurado SEA el host ( |
 | `f-a168fe6d` | fixed | Arreglado en 43d9199. El test se reescribio para afirmar config == nil en vez de baseURL.scheme != h |
 | `f-7c57fa35` | accepted | Decision del owner (2026-08-29, literal): "el token es de dev, no importa que se haya visto, no es u |

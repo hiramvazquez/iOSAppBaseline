@@ -57,8 +57,12 @@
    una sola ruta portable; `f-804ebee0` cerrado con la evidencia del run, no con una afirmación.
    Queda vivo lo que ese cierre NO cierra: la **clase** en `f-3b30fcf4`, con dos instancias sin
    tocar (`tools/harness-report.sh:40`, `tools/secret-baseline.sh:66`), y la **deuda de
-   propagación al template** — el archivo llegó por sync, así que el bug vive igual arriba y el
-   próximo `tools/upgrade.sh` traería la versión vieja.
+   propagación al template**, que **se hizo el 2026-08-31**: el fix está publicado arriba
+   (`agentic-workflow-template@31bbb88`) con ciclo TDD propio —el test primero, rojo en el propio
+   template—, así que el próximo `tools/upgrade.sh` ya no traería la versión vieja. Sigue debiendo
+   el template las dos instancias vivas de la misma clase (`harness-report.sh:40`,
+   `secret-baseline.sh:66`). Aviso para quien lo toque: **el Anillo 3 de aquel repo no ejecuta**
+   —0 steps por presupuesto de Actions, verificado el 2026-08-31—, así que allí no hay backstop.
 
 0b. **PRD 0003 (detector de omisión) en `Draft`, BLOQUEADO en su OQ-1.** Al verificar —en vez de
    copiar— el diseño que `f-e008f6f` traía dentro, apareció el bloqueante: la fila

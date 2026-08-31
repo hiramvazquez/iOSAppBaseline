@@ -84,10 +84,20 @@ anterior: `f-f88eb0fd`, `f-a452b1de`, `f-5856bd41`, `f-996710c3`, más el residu
 declarado *dentro de la resolución* de `f-f2a4ca6e`. `f-29c26642` es de proceso y `f-8ab6c2ad`
 vive en el SPM: este slice los **ejercita**, no los cierra.
 
-**4. La deuda del template, antes de que muerda.** `check-ring3.sh` llegó por el canal de sync, así
-que el bug vive igual arriba y en todo adoptante con CI en Linux — y **el próximo
-`tools/upgrade.sh` traería la versión vieja y re-conflictuaría**. Lo mismo para las dos instancias
-de `f-3b30fcf4`.
+**4. ~~La deuda del template~~ — HECHA el 2026-08-31.** El fix se propagó aguas arriba
+(`agentic-workflow-template@31bbb88`, publicado), así que el próximo `tools/upgrade.sh` ya **no**
+traería la versión vieja de `check-ring3.sh`. Se hizo con ciclo TDD real allí —el test primero,
+rojo en el propio template— y no como copia a ciegas. **Lo que sigue debiendo el template:** las
+dos instancias vivas de la misma clase (`harness-report.sh:40`, `secret-baseline.sh:66`), anotadas
+allí como f-1caf51c6 — **sin acentos graves a propósito: ese id vive en el ledger DEL TEMPLATE, no
+en este, así que citarlo aquí sería un fantasma. Lo cazó `check-finding-refs` al escribir esto.**
+
+> ⚠️ **El Anillo 3 del template NO ejecuta** (f-787568d2 allí, id de aquel ledger): verificado el 2026-08-31 en el
+> run 33420144900 — **0 steps**, con la anotación literal de GitHub *«The job was not started
+> because an Actions budget is preventing further use»*. O sea que aquel fix **no** tiene
+> verificación local en Linux; la única evidencia es la corrida de CI de ESTE repo
+> (run 33351758651), que el reviewer de allí comprobó bajándose el log. Si vas a tocar el
+> template, cuenta con que su backstop está mudo.
 
 **5. La cola del `process-judge`: 3 sesiones** (`cat .agents/state/judge-queue.txt`). Su VERDICT la
 vacía. Necesita permiso del owner para lanzar sub-agentes.
@@ -148,11 +158,22 @@ como sub-agente (`f-ea2aea2f`) y el gate de fidelidad de skills (`f-2ffc6d32`).
 
 ## Findings: consulta el número vivo con el comando
 
-`bash tools/findings/findings.sh list --status open` — **41 abiertos** el 2026-08-31 (6 high, 21
-medium, 14 low). El conteo escrito a mano caduca solo, y el del hook es del otro repo.
+`bash tools/findings/findings.sh list --status open` — **38 abiertos** al cierre del 2026-08-31
+(6 high, 19 medium, 13 low). El conteo escrito a mano caduca solo, y el del hook es del otro repo.
 
-Cerrados en esta sesión: `f-804ebee0` (Anillo 3, con la evidencia del run), `f-da257e0c`
-(`AGENTS.md` §3) y `f-a3b6dafc` (las skills, que llevaba resuelto sin cerrar).
+> **Patrón que apareció al agruparlos por coste, y que conviene repetir:** cuatro findings estaban
+> **resueltos y nadie los había cerrado** — `f-a3b6dafc`, `f-d4b58c90`, `f-694c2009` y
+> `f-b6c162d8`. Un ledger que solo crece deja de servir para priorizar, que es para lo que se usa.
+> Antes de planificar sobre la cifra, vale la pena una pasada preguntando a cada finding «¿esto
+> sigue siendo cierto?» — es barata y aquí devolvió un 10%.
+
+Cerrados en esta sesión (6): `f-804ebee0` (Anillo 3, con la evidencia del run), `f-da257e0c`
+(`AGENTS.md` §3), `f-a3b6dafc` (las skills), y los tres del párrafo de arriba. **`f-b6c162d8` se
+cerró con alcance acotado y merece leerse**: su propuesta pedía tres cosas y solo una se
+entregó — la dirección inversa se **midió antes de descartarla** (168 de 263 archivos sin
+declarar, ~64% de FP, seis veces el techo de §14.2) y la convención de etiquetas se sustituyó por
+el marcador `[SLICE-FUTURO]`. Lo que sigue sin cubrir, escrito en su resolución: **el archivo
+entregado que nadie planeó**.
 
 Abiertos en esta sesión: `f-3b30fcf4` (la clase de las bifurcaciones por entorno, con dos
 instancias vivas) y `f-a655520c` (el PRD 0001 se contradice consigo mismo sobre dónde van

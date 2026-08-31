@@ -48,6 +48,27 @@
 
 ## Próximo paso
 
+0. **El Anillo 3 estuvo caído y ya no lo está (2026-08-30).** El push del PRD 0002 dejó CI en
+   rojo y nadie lo vio hasta la sesión siguiente: `_con_limite` en `check-ring3.sh` prefería
+   `timeout` cuando existía, así que la escalada TERM→KILL vivía solo en el fallback. **El gate
+   de pre-push corre en macOS —sin `timeout`— y CI en Linux —con él—: la rama que se probaba en
+   local nunca era la que corría en CI.** No era el flaky de `f-7c08518b`; era determinista y de
+   plataforma, y el test nunca había estado verde en CI ni un día. Arreglado en `e779539` con
+   una sola ruta portable; `f-804ebee0` cerrado con la evidencia del run, no con una afirmación.
+   Queda vivo lo que ese cierre NO cierra: la **clase** en `f-3b30fcf4`, con dos instancias sin
+   tocar (`tools/harness-report.sh:40`, `tools/secret-baseline.sh:66`), y la **deuda de
+   propagación al template** — el archivo llegó por sync, así que el bug vive igual arriba y el
+   próximo `tools/upgrade.sh` traería la versión vieja.
+
+0b. **PRD 0003 (detector de omisión) en `Draft`, BLOQUEADO en su OQ-1.** Al verificar —en vez de
+   copiar— el diseño que `f-e008f6f` traía dentro, apareció el bloqueante: la fila
+   `@Inject :: Sources/**` pondría el detector **rojo sobre código correcto**, porque `Sources/`
+   tiene cero `@Inject` y usa inyección por constructor, que es lo que el autor del paquete
+   recomienda (`Inject.swift`: «Prefer constructor injection») mientras `AGENTS.md` §3 prescribe
+   `@Inject` en los consumidores. Es `f-da257e0c`, y **lo decide el owner**: no se mecaniza una
+   regla en disputa. El PRD trae además un fixture histórico (`a577e3e`) que demuestra que un
+   `grep` ingenuo habría dado verde sobre el árbol que motivó todo esto.
+
 1. **Slice 0 commiteado y publicado.** `origin/main` incluye la vertical, los tres refactors y
    la reescritura de las skills; CI (`Gates`) pasa en verde sobre ese árbol —el estado real de
    sus ejecuciones se consulta con `gh run list --repo hiramvazquez/iOSAppBaseline`, no se

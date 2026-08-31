@@ -3,7 +3,7 @@
 > **GENERADA — NO editar a mano.** Fuente: `tools/findings/ledger.jsonl`.
 > Regenerar: `bash tools/findings/findings.sh render`.
 
-Abiertos: **42** · Cerrados: 22 · Total: 64
+Abiertos: **42** · Cerrados: 23 · Total: 65
 
 ## Abiertos
 
@@ -12,9 +12,9 @@ Abiertos: **42** · Cerrados: 22 · Total: 64
 | `f-29c26642` | high | owner-decision | `docs/process/reviews/2026-08-28-design-review-prd-0001.md:180-194` | El design-reviewer SI cazo la omision de Coordinator/DI (6a pasada, H-7) y el hallazgo se evaporo |
 | `f-2ffc6d32` | high | owner-decision | `.agents/skills/**` | Las skills que describen un SPM no tienen gate de fidelidad: nadie valida que digan VERDE cuando el paquete dice VERDE |
 | `f-7c08518b` | high | owner-decision | `tools/tests/test_agent_runner.sh` | La suite del harness tiene tests flaky de senales que bloquean el push al azar |
-| `f-804ebee0` | high | owner-decision | `tools/check-ring3.sh:169 (rama timeout) + tools/tests/test_ring3.sh:324` | check-ring3: el limite de tiempo NO escala a KILL en Linux, y por eso CI lleva rojo desde el upgrade |
 | `f-8720114e` | high | owner-decision | `spm-pro/AppFoundation/README.md:144-157` | El README de AppFoundation ensena el patron que rompe la identidad de los ViewModels |
 | `f-a3b6dafc` | high | owner-decision | `.agents/skills/architecture/**` | La skill de arquitectura ensena a NO usar los SPM propios: es el template sin rellenar |
+| `f-da257e0c` | high | owner-decision | `AGENTS.md:67-68 + spm-pro/AppFoundation/.../DependencyInjection/Inject.swift:5-7` | AGENTS.md 3 prescribe @Inject en los consumidores y el paquete que lo provee dice que es la EXCEPCION: el detector de omision nace sobre una regla en disputa |
 | `f-e008f6f` | high | owner-decision | `tools/ (propuesta: check-platform-adoption.sh + platform-adoption.conf)` | No hay ningun detector de OMISION: nada comprueba que el codigo use los mecanismos que AGENTS.md 3 prescribe |
 | `f-ea2aea2f` | high | owner-decision | `.claude/agents/` | Falta el revisor final con contexto COMPLETO: tarea, PRD, skill, codigo y tests, como un senior ante un PR |
 | `f-2db8ecf0` | medium | owner-decision | `docs/process/current_execution_map.md:56 / tools/` | Nada contrasta un diseno prescrito en docs contra layers.conf: se corrigio el caso (f-3480a974) y no la clase |
@@ -78,3 +78,4 @@ Abiertos: **42** · Cerrados: 22 · Total: 64
 | `f-1aa86bc8` | fixed | Arreglado en 43d9199. El guard dejo de ser lista negra: ahora exige que lo configurado SEA el host ( |
 | `f-a168fe6d` | fixed | Arreglado en 43d9199. El test se reescribio para afirmar config == nil en vez de baseURL.scheme != h |
 | `f-7c57fa35` | accepted | Decision del owner (2026-08-29, literal): "el token es de dev, no importa que se haya visto, no es u |
+| `f-804ebee0` | fixed | CERRADO con evidencia de CI, no con una afirmacion. Run 33351758651 sobre e779539: los DOS jobs en v |

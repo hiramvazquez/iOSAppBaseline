@@ -1,9 +1,9 @@
 # PRD — Detector de omisión de mecanismos prescritos
 
-> **Tipo:** Forward · **Status:** 📝 Draft — **bloqueado en OQ-1** (`f-da257e0c`), que decide qué filas puede contener el conf
+> **Tipo:** Forward · **Status:** 📝 Draft — **OQ-1 resuelta y desbloqueado** (owner, 2026-08-31). Pendientes OQ-2 y OQ-3, y el `design-reviewer`
 > **Autor:** sesión de agente (Claude) · **Fecha:** 2026-08-30
 > **Tracking:** `f-e008f6f` (el encargo, con el diseño primario y las cuatro lecciones dentro) · `f-da257e0c` (el bloqueante) · `f-f2a4ca6e` (el caso que lo motivó, ya cerrado) · `f-2ffc6d32` (el hueco hermano)
-> **Design-review:** pendiente — no se pide hasta que OQ-1 esté resuelta (revisar un CÓMO cuyo QUÉ está en disputa gasta una pasada para nada)
+> **Design-review:** pendiente — se pide cuando OQ-2 y OQ-3 estén decididas. La razón para no pedirlo antes (OQ-1 en disputa: revisar un CÓMO cuyo QUÉ no está decidido gasta una pasada para nada) ya no aplica
 
 > **Por qué esto es un PRD.** Lo decidió el owner en OQ-1 del PRD 0002 (2026-08-29): va en PRD
 > aparte porque **toca `tools/`**, que §8 reserva al owner, y meterlo en el 0002 habría mezclado
@@ -54,7 +54,7 @@ Verificable con un fixture histórico, no con una promesa:
 | Árbol | Qué es | Veredicto exigido |
 |---|---|---|
 | `a577e3e` | antes del PRD 0002, donde `f-f2a4ca6e` verificó cero usos | **🔴 RED** |
-| `HEAD` | después del PRD 0002 | **🟢 GREEN** (sujeto a OQ-1) |
+| `HEAD` | después del PRD 0002 | **🟢 GREEN** con las filas de §13 OQ-1, ya fijadas |
 
 ## 4. Filosofía / principios
 
@@ -89,7 +89,7 @@ en local y bloquea en CI — no «todo correcto» y tampoco «te falta el mecani
 
 ```
 tools/check-platform-adoption.sh          ← [SLICE-FUTURO] fase 1: el detector
-tools/platform-adoption.conf              ← [SLICE-FUTURO] fase 1: la lista curada (filas sujetas a OQ-1)
+tools/platform-adoption.conf              ← [SLICE-FUTURO] fase 1: la lista curada (filas fijadas en §13 OQ-1)
 tools/tests/test_platform_adoption.sh     ← [SLICE-FUTURO] fase 1: su suite, con el fixture histórico
 ci/run-gates.sh                           ← [SLICE-FUTURO] fase 2: TOCAR — un paso más
 lefthook.yml                              ← [SLICE-FUTURO] fase 2: TOCAR — Anillo 1
@@ -104,8 +104,8 @@ tools/drift-ratchet.json · tools/mutation-ratchet.json
 tools/layers.conf · tools/skill-matrix.conf · tools/verify.conf
     ← confs de OTROS gates: este detector trae el suyo, no re-usa el ajeno
 AGENTS.md · CLAUDE.md
-    ← meta-doc (§8). OJO: OQ-1 propone corregir §3, y por eso NO puede hacerlo el
-      implementador — la corrección es del owner y va en un cambio aparte
+    ← meta-doc (§8). La corrección de §3 que esta OQ-1 pedía YA la hizo el owner
+      (2026-08-31); el implementador de este PRD sigue sin poder tocar el archivo
 Sources/** · Tests/**
     ← este PRD no toca código de app. Si el detector sale rojo sobre HEAD, eso es un
       HALLAZGO que se reporta, no un permiso para editar el producto hasta apagarlo
@@ -117,7 +117,7 @@ scripts/agent-hooks/**
 
 | Fase | Entrega (mergeable) | Depende de |
 |---|---|---|
-| 1 | Conf + detector + suite, **sin cablear a ningún anillo**. Corre a mano y es honesto en los tres exit codes | OQ-1 |
+| 1 | Conf + detector + suite, **sin cablear a ningún anillo**. Corre a mano y es honesto en los tres exit codes | OQ-2 |
 | 2 | Cableado a Anillo 3 (`ci/run-gates.sh`) y Anillo 1 (`lefthook.yml`), con su declaración en el arranque de sesión | 1 |
 
 > La fase 1 es mergeable sola **a propósito**: un detector nuevo que se cablea el mismo día en que
@@ -201,7 +201,7 @@ respeta `check-ring3.sh`).
 4. **No escanea docs, PRDs, skills ni comentarios.** Solo código, con comentarios quitados.
 5. **No se cablea al Anillo 2.** El `skill-reminder` excluye `tools/**` a propósito y este gate no
    tiene por qué bloquear un `Edit`; su sitio son los anillos 1 y 3.
-6. **No corrige `AGENTS.md`.** OQ-1 propone hacerlo, pero es del owner y va aparte (§5 NO-TOUCH).
+6. **No corrige `AGENTS.md`.** La corrección que OQ-1 pedía la hizo el owner por su cuenta el 2026-08-31, en un cambio aparte; este PRD no toca el archivo (§5 NO-TOUCH).
 
 ## 9. Escenarios golden (deben pasar al terminar)
 
@@ -211,7 +211,7 @@ respeta `check-ring3.sh`).
 2. **La prueba de que §4.2 no es decoración.** Dado ese mismo árbol, cuando se desactiva el
    quitado de comentarios *o* la frontera de palabra, entonces el detector pasa a **0** — o sea,
    se demuestra que sin esas dos piezas habría aprobado el árbol que motivó el PRD.
-3. **Verde honesto.** Dado `HEAD`, cuando se corre con las filas que OQ-1 apruebe, entonces sale
+3. **Verde honesto.** Dado `HEAD`, cuando se corre con las filas que fija §13 OQ-1, entonces sale
    **0** y `ADOPTION_SUMMARY omitidas=0`.
 4. **El glob mudo.** Dado un conf cuya fila apunta a `Sources/NoExiste/**`, entonces sale **3** y
    `globs_mudos=1` — nunca 0 y nunca 1.
@@ -239,25 +239,23 @@ borrar la fila ofensora del conf (el detector sigue vivo para las demás) o el p
 | Riesgo | Mitigación |
 |---|---|
 | **Nace verde y no vuelve a disparar nunca** — HEAD ya adoptó los mecanismos, así que el detector podría ser decorativo desde el día uno | Golden 1 y 2: se exige demostrar que se pone **rojo sobre el fixture histórico**. Un detector que no se ha visto fallar no está verificado. Su valor real es de **trinquete**: impide des-adoptar en silencio, y es el gate de los proyectos nuevos que salgan de esta baseline |
-| **Mecanizar una regla en disputa** (`@Inject`) | OQ-1 **bloquea `Approved`**. Un gate que se pone rojo sobre código correcto es el peor FP posible |
+| **Mecanizar una regla en disputa** (`@Inject`) | **Conjurado**: OQ-1 se resolvió corrigiendo `AGENTS.md` §3, y la fila `@Inject` NO entra al conf. El riesgo genérico persiste para filas futuras — de ahí la ventana de §5b antes de cablear |
 | **El conf se pudre**: se prescribe un mecanismo nuevo en `AGENTS.md` §3 y nadie añade su fila | ⚠️ **Sin mitigación en este PRD, y se declara.** Sería un detector del detector. Anotado en §16 |
 | Los globs enmudecen al mover carpetas | §4.3: exit 3, no verde. Es la lección del 2026-08-28 aplicada por diseño |
 | Un uso dentro de un string literal cuenta como uso | Declarado en §7 como FP posible conocido. No se persigue |
 
 ## 13. Open Questions
 
-- [ ] **OQ-1 (BLOQUEANTE, `f-da257e0c`) — ¿qué dice la fila de inyección de dependencias?**
-      `AGENTS.md`:67-68 prescribe «`Container` … **con `@Inject` en los consumidores**».
-      `Inject.swift`:5-7, del autor del paquete, dice «**Prefer constructor injection**; use
-      `@Inject` only when constructor injection is impractical». Medido hoy: `Sources/` tiene
-      **cero** `@Inject` y usa inyección por constructor — o sea que **el código sigue al paquete**.
-      Con la fila `@Inject :: Sources/**` que propone `f-e008f6f`, el detector nacería **rojo sobre
-      código correcto**. Tres salidas, y ninguna la puede tomar el agente:
-      **(a)** corregir `AGENTS.md` §3 al idioma del paquete y que la fila exija `Container.shared`
-      o `: DependencyModule` — *recomendada*, por la regla de que el idioma de los SPM manda;
-      **(b)** decidir que este proyecto quiere `@Inject` igualmente, y entonces cerrar el gap en el
-      código **antes** de encender el detector; **(c)** declarar la fila no-mecanizable y dejarla
-      fuera con su razón escrita.
+- [x] **OQ-1 — RESUELTA (owner, 2026-08-31): rama (a), y ya aplicada.** `AGENTS.md` §3 se
+      corrigió al idioma que ya usaban las otras cuatro fuentes del proyecto
+      (`architecture/SKILL.md` §DI, `platforms/ios.md`:373-394, `Inject.swift` del paquete y el
+      código): **inyección por constructor por defecto; `@Inject` solo para dependencias
+      transversales, y siempre con `init(container:)`**. `f-da257e0c` cerrado.
+      **Consecuencia para el conf, que es lo que esta OQ bloqueaba:** la fila `@Inject ::
+      Sources/**` que proponía `f-e008f6f` **NO entra** — exigiría lo que la regla nueva llama
+      excepción. La fila de DI exige `: DependencyModule :: Sources/**` y
+      `Container.shared :: Sources/App/**`, que es lo que el proyecto sí prescribe y sí hace.
+      El PRD queda **desbloqueado**: pasa a `design-review` cuando OQ-2 y OQ-3 estén decididas.
 - [ ] **OQ-2 — ¿el detector vive aquí o en el template?** El template lo querría (sirve a todos los
       adoptantes), pero su conf es por fuerza específico de cada proyecto. Propuesta: la herramienta
       arriba, el conf abajo, y sin conf → exit 3 con instrucciones. Decisión del owner porque
@@ -291,6 +289,7 @@ borrar la fila ofensora del conf (el detector sigue vivo para las demás) o el p
 
 | Fecha | Cambio | Quién |
 |---|---|---|
+| 2026-08-31 | **OQ-1 resuelta y aplicada** (owner): `AGENTS.md` §3 corregido al idioma que ya usaban las otras cuatro fuentes, `f-da257e0c` cerrado, y la fila `@Inject` descartada del conf. Barridas las siete frases del documento que la daban por pendiente | agente |
 | 2026-08-30 | Draft inicial. Se verificaron —no se copiaron— los hechos del diseño de `f-e008f6f`, y la verificación encontró el bloqueante: `@Inject` tiene cero usos en `Sources/` y el paquete recomienda lo contrario que `AGENTS.md` §3 (`f-da257e0c`). Se añadió el fixture histórico de `a577e3e`, que además prueba que un `grep` ingenuo habría dado verde sobre el árbol que motivó el PRD | agente |
 
 ## 18. Gaps detectados (llenar post-ship)

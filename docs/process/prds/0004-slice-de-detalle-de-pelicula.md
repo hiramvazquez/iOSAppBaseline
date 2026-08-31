@@ -310,9 +310,9 @@ que toque credencial, almacenamiento o authz).
       del store cerrando sobre el coordinator, y el registro del contenedor **eliminado por no
       tener consumidor**. Queda alineado con `architecture/SKILL.md`:88-93 —lectura obligatoria
       de este repo, que ya decía «inyección por constructor por defecto»— y con `Inject.swift`
-      del paquete. Lo que la decisión **no** toca: el texto de `AGENTS.md` §3, que sigue
-      prescribiendo `@Inject` en los consumidores y ahora contradice una desviación **decidida**;
-      eso es meta-doc y sigue en `f-da257e0c`.
+      del paquete. `AGENTS.md` §3, que hasta ese día prescribía `@Inject` en los
+      consumidores, se corrigió al mismo idioma por decisión del owner el 2026-08-31
+      (`f-da257e0c`, cerrado): ya no hay ninguna fuente del proyecto que contradiga esta rama.
 - [ ] **OQ-2 (bloquea la fase 1) — ¿un puerto nuevo o un método más en el existente?**
       Propuesta: **puerto nuevo**. `PopularMoviesRepository` es una *capability* declarada
       («pide exactamente una cosa») y añadirle `movieDetail` rompería esa declaración y obligaría

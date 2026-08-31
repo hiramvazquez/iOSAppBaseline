@@ -3,7 +3,7 @@
 > **GENERADA — NO editar a mano.** Fuente: `tools/findings/ledger.jsonl`.
 > Regenerar: `bash tools/findings/findings.sh render`.
 
-Abiertos: **43** · Cerrados: 23 · Total: 66
+Abiertos: **42** · Cerrados: 24 · Total: 66
 
 ## Abiertos
 
@@ -14,7 +14,6 @@ Abiertos: **43** · Cerrados: 23 · Total: 66
 | `f-7c08518b` | high | owner-decision | `tools/tests/test_agent_runner.sh` | La suite del harness tiene tests flaky de senales que bloquean el push al azar |
 | `f-8720114e` | high | owner-decision | `spm-pro/AppFoundation/README.md:144-157` | El README de AppFoundation ensena el patron que rompe la identidad de los ViewModels |
 | `f-a3b6dafc` | high | owner-decision | `.agents/skills/architecture/**` | La skill de arquitectura ensena a NO usar los SPM propios: es el template sin rellenar |
-| `f-da257e0c` | high | owner-decision | `AGENTS.md:67-69 (la fuente canonica) vs .agents/skills/architecture/SKILL.md:88-93 + spm-pro/.../Inject.swift:5-7 + el codigo` | AGENTS.md 3 prescribe @Inject en los consumidores y el paquete que lo provee dice que es la EXCEPCION: el detector de omision nace sobre una regla en disputa |
 | `f-e008f6f` | high | owner-decision | `tools/ (propuesta: check-platform-adoption.sh + platform-adoption.conf)` | No hay ningun detector de OMISION: nada comprueba que el codigo use los mecanismos que AGENTS.md 3 prescribe |
 | `f-ea2aea2f` | high | owner-decision | `.claude/agents/` | Falta el revisor final con contexto COMPLETO: tarea, PRD, skill, codigo y tests, como un senior ante un PR |
 | `f-2db8ecf0` | medium | owner-decision | `docs/process/current_execution_map.md:56 / tools/` | Nada contrasta un diseno prescrito en docs contra layers.conf: se corrigio el caso (f-3480a974) y no la clase |
@@ -80,3 +79,4 @@ Abiertos: **43** · Cerrados: 23 · Total: 66
 | `f-a168fe6d` | fixed | Arreglado en 43d9199. El test se reescribio para afirmar config == nil en vez de baseURL.scheme != h |
 | `f-7c57fa35` | accepted | Decision del owner (2026-08-29, literal): "el token es de dev, no importa que se haya visto, no es u |
 | `f-804ebee0` | fixed | CERRADO con evidencia de CI, no con una afirmacion. Run 33351758651 sobre e779539: los DOS jobs en v |
+| `f-da257e0c` | fixed | CERRADO por decision y orden explicita del owner (2026-08-31): 'corrige el AGENTS.md tu'. Aplicada l |

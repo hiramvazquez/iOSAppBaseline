@@ -64,9 +64,17 @@
   testeable vive aparte, en tipos puros sin dependencias de UI ni de red.
 - **Navegación:** `Coordinator` + `Router` de AppFoundation. Las vistas NO navegan: piden al
   router. Una capa modal por host (el estado no modela lo que SwiftUI no puede renderizar).
-- **Inyección de dependencias:** `Container` de AppFoundation (`Container.shared` inmutable) con
-  `@Inject` en los consumidores; los tests registran fakes en contenedores propios, nunca
-  mutando el global.
+- **Inyección de dependencias:** `Container` de AppFoundation (`Container.shared` inmutable),
+  con un `DependencyModule` por feature registrado en el composition root. **Inyección por
+  constructor por defecto**; `@Inject` solo para dependencias transversales, y siempre con un
+  `init(container:)` que permita testear con un contenedor propio. Los tests registran fakes en
+  contenedores propios, nunca mutando el global.
+  <!-- Esta línea decía «con `@Inject` en los consumidores», y era la única fuente del proyecto
+       que lo decía: `architecture/SKILL.md` §DI, el `Inject.swift` de AppFoundation («Prefer
+       constructor injection») y el propio código decían constructor. Como §0 de este archivo
+       gana sobre cualquier otra fuente, un agente que leía las dos lecturas obligatorias
+       recibía instrucciones contradictorias y la regla le mandaba obedecer a la minoritaria.
+       Corregida por decisión del owner (2026-08-31), ledger `f-da257e0c`. -->
 - **Red:** todo acceso HTTP pasa por `APIService` de CoreNetworking con su `NetworkingConfiguration`
   inyectada. Nada de `URLSession` suelto en la app.
 - **Dominio aislado:** las entidades, puertos de repositorio y errores de dominio NO dependen de UI ni de infraestructura (DB/SDK).

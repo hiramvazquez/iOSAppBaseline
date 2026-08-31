@@ -3,7 +3,7 @@
 > **GENERADA — NO editar a mano.** Fuente: `tools/findings/ledger.jsonl`.
 > Regenerar: `bash tools/findings/findings.sh render`.
 
-Abiertos: **42** · Cerrados: 23 · Total: 65
+Abiertos: **43** · Cerrados: 23 · Total: 66
 
 ## Abiertos
 
@@ -28,6 +28,7 @@ Abiertos: **42** · Cerrados: 23 · Total: 65
 | `f-85c818b4` | medium | owner-decision | `AGENTS.md:5 / .agents/skills/process/references/tdd-workflow.md:18` | El paso rojo del TDD no lo observa nada, y la trayectoria muestra que no ocurrio en el slice 0 |
 | `f-8ab6c2ad` | medium | owner-decision | `spm-pro/AppFoundation/Sources/AppFoundation/Navigation/Views/CoordinatorView.swift` | CoordinatorView no tiene ni un solo test, y es donde vive la trampa mas cara del paquete |
 | `f-8e30ad43` | medium | auto-fix | `scripts/agent-hooks/session-end.sh:51-58` | La judge-queue encolo un SID sin trayectoria y con commits=0 la sesion que escribio el slice 0 |
+| `f-a655520c` | medium | auto-fix | `docs/process/prds/0001-vertical-de-referencia-peliculas.md:367 (SS6.2) + :155 (SS5)` | El PRD 0001 se contradice consigo mismo sobre donde van overview/releaseDate, y su arbol de archivos coloca MoviesModule donde layers.conf lo rechaza |
 | `f-b6c162d8` | medium | owner-decision | `docs/process/prds/0001-vertical-de-referencia-peliculas.md:171-175 (propuesta: tools/check-prd-tree.sh)` | El arbol de archivos del PRD 5 se comparo con lo entregado a ojo, y la pasada manual perdio los tres archivos que faltaban |
 | `f-cc4f2b3e` | medium | auto-fix | `tools/check-execution-map.sh:279` | check-execution-map: cualquier backtick vecino excusa una afirmacion de estado falsa |
 | `f-db694460` | medium | owner-decision | `spm-pro/AppFoundation/Sources/AppFoundation/DependencyInjection/Container.swift` | Container: registrar transient o scoped sobre un singleton ya materializado es silenciosamente inefectivo |

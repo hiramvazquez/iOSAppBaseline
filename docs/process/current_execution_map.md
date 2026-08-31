@@ -69,6 +69,17 @@
    regla en disputa. El PRD trae además un fixture histórico (`a577e3e`) que demuestra que un
    `grep` ingenuo habría dado verde sobre el árbol que motivó todo esto.
 
+0c. **PRD 0004 (slice de detalle) en `Draft`, con cuatro OQ para el owner.** Es el primer slice
+   que RECORRE la navegación: hoy `MoviesRoute` tiene una sola ruta, el `Router` se registra pero
+   nadie lo resuelve, y `CoordinatorView` está montado sin que ningún push/pop lo haya
+   atravesado. Contrato y golden 6 tomados del PRD 0001 §6.3/§9, no reinventados. La verificación
+   del código encontró dos cosas que el handoff no traía: **el registro del `Router` se queda sin
+   consumidor** si el ViewModel lo recibe por constructor —y a un registro sin consumidor se le
+   borra, no se le escribe un test (OQ-1, anotada en `f-f88eb0fd`)—, y **el PRD 0001 se
+   contradice consigo mismo** sobre dónde van `overview`/`releaseDate`, con su árbol colocando
+   además `MoviesModule` donde `layers.conf` lo rechaza (`f-a655520c`). Los findings atados al
+   slice son **cuatro** más un residuo declarado, no cinco: el handoff contaba de más.
+
 1. **Slice 0 commiteado y publicado.** `origin/main` incluye la vertical, los tres refactors y
    la reescritura de las skills; CI (`Gates`) pasa en verde sobre ese árbol —el estado real de
    sus ejecuciones se consulta con `gh run list --repo hiramvazquez/iOSAppBaseline`, no se
